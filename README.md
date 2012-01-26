@@ -31,3 +31,8 @@ installing on Ubuntu 11.10 64-bit
     run
     continue
     quit
+
+# hex editor
+
+    sudo apt-get install bless
+    bless hello
