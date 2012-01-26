@@ -20,3 +20,14 @@ installing on Ubuntu 11.10 64-bit
 
     make write.o && ./write
     make hello && ./hello
+
+# disassembly example
+
+    gdb hello
+    info files
+    disassemble 0x00000000004000b0,0x00000000004000cd
+    x/s 0x6000d0
+    break *0x00000000004000c4
+    run
+    continue
+    quit
