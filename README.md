@@ -1,38 +1,53 @@
-just teaching myself Assembly language
+# Assembly
 
-see also: http://asm.sourceforge.net/resources.html#tutorials
+Follow along as we learn Assembly Language (ASM). Including x86, x86_64 architecture,
+machine language, JVM bytecode, and fundamentals of hardware.
 
-installing on Ubuntu 11.10 64-bit
 
-# install linux kernel headers
+## Gather Tools (Ubuntu 12.04 64-bit)
 
-    sudo apt-get install linux-headers
+```bash
+# gcc and the linux source are all we need
+sudo apt-get install linux-headers build-essential
+# NOTICE: nasm, yasm, and third-party disassemblers are a waste of time
+```
 
-# install compiler
+## Assemble
+Assuming you're following the example source in this repo.
+```bash
+# NOTICE: no git clone step; type it yourself--its fun!
+gcc -c hello.s # i prefer the .asm extension but gcc requires this
+```
 
-    sudo apt-get install nasm
+## Link
+```bash
+ld -o hello hello.o
+```
 
-# clone
+## Execute
+```bash
+./hello # should output "Hello, world!"
+```
 
-    git clone git@github.com:mikesmullin/Assembly .
+## Disassemble and Inspect
+```bash
+readelf -a hello
+objdump -ds hello
+nm hello
+echo $(( 0xfffffffffffffffe )) # convert hex to 64-bit signed integer -2
+```
 
-# compile and execute example
+## Debug Interactively
+```bash
+gdb hello
+info files
+disassemble 0x00000000004000b0,0x00000000004000cd
+x/s 0x6000d0
+break *0x00000000004000c4
+run
+continue
+quit
+```
 
-    make write.o && ./write
-    make hello && ./hello
-
-# disassembly example
-
-    gdb hello
-    info files
-    disassemble 0x00000000004000b0,0x00000000004000cd
-    x/s 0x6000d0
-    break *0x00000000004000c4
-    run
-    continue
-    quit
-
-# hex editor
-
-    sudo apt-get install bless
-    bless hello
+## Reference
+* https://gist.github.com/mikesmullin/6259449#comment-892678
