@@ -24,8 +24,7 @@ sudo edb
 # Symbol Directory: ~/.edb
 # Plugin Directory: /lib64/edb
 # Session Directory: ~/.edb
-# save and restart
-edb # sudo no longer required
+# save and exit
 ```
 
 ## Assemble
@@ -54,6 +53,14 @@ echo $(( 0xfffffffffffffffe )) # convert hex to 64-bit signed integer -2
 ```
 
 ## Debug Interactively
+The easy way:
+```bash
+edb
+# File > Open
+# select your compiled binary
+```
+
+The hard way:
 ```bash
 gdb hello
 info files
