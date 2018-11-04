@@ -1,0 +1,82 @@
+read about how to make a window
+  https://docs.microsoft.com/en-us/windows/desktop/winmsg/windowing
+  http://nehe.gamedev.net/tutorial/creating_an_opengl_window_(win32)/13001/
+	https://docs.microsoft.com/en-us/windows/desktop/api/winuser/nf-winuser-createwindowexa
+  https://docs.microsoft.com/en-us/windows/desktop/winmsg/about-window-classes
+  https://stackoverflow.com/questions/2942841/how-is-executed-a-sendmessage-from-a-different-thread
+	https://github.com/apitrace/apitrace/issues/122
+
+and how to make a gl context
+	; build the window
+	x GetModuleHandleA ; gets handle of any loaded lib (we use it to get the current process handle to assign as owner of window)
+	x LoadIconA ; define icon for window (get handle reference back?)
+	x LoadCursorA ; define cursor for window (get handle reference back?)
+	; gotta set pixel format of Device Context (DC) before window is created
+	GetDC ; clear. a handle to GDI32 instance needed by ogl to draw
+	PIXELFORMATDESCRIPTOR
+	ChoosePixelFormat ; requirement for opengl to draw in window client space; sets res + color depth
+	SetPixelFormat ; "
+	;ChangeDisplaySettingsA ; set full screen
+	x RegisterClassExW ; register a WNDCLASSA struct for use with CreateWindowExA and others (W=Unicode support)
+	x CreateWindowExA ; create a new window
+	;ShowWindow ; obvious. display window (otherwise remains hidden)
+
+	; build and attach the gl context
+	wglCreateContext ; obvious
+	wglMakeCurrent ; obvious
+	SetForegroundWindow ; obvious
+	SetFocus ; obvious
+	ShowCursor ; obvious
+
+	; main loop
+	PeekMessageA ; send/receive pending window messages without blocking (required to prevent window ghosting and send outbound messages, too)
+	TranslateMessage ;
+	DispatchMessageA ;
+	SwapBuffers ; recommended by Kronos to use the GDI version over the wglSwapBuffers. i guess its a compatibility issue with MSFT
+	DefWindowProcA ; let windows handle uninteresting window events
+
+	; shutdown / cleanup
+	wglDeleteContext ; cleanup obvious
+	ReleaseDC ; cleanup obvious
+	DestroyWindow ; cleanup obvious
+	PostQuitMessage ; initiates graceful shutdown by enqueueing WM_QUIT. typically in response to WM_DESTROY (user clicking window "X") see also SendNotifyMessage, SendMessageTimeout or SendMessageCallback
+
+	; error handling
+	x GetLastError
+	x FormatMessage
+
+  ; system information
+	GetSystemMetrics
+
+and how to define the gl perspective (without glu)
+  yes glu is old and an alternative should be sought
+	  https://www.khronos.org/opengl/wiki/GluPerspective_code
+	it appears relatively simple to define the perspective matrix yourself, if you know the math
+	and fortunately for me, i already spent the time to do just that in the past
+		https://codepen.io/mikesmullin/pen/zNxoBL?editors=0010
+	this will enable me to avoid using the GLU dependency
+
+- try to get nasm to (in windows pe 64-bit executable):
+  x print msgbox
+  x print to console
+	- render a spinning gl cube
+    x open a window
+    - render a gl context (blue)
+    - render a gl triangle
+
+notes:
+
+so many linkers! ld, cl, golink, link
+- should make my own minimalist linker that reduces/reuses empty/unused space (97B)
+
+64-bit fast call is done like
+https://msdn.microsoft.com/en-us/library/zthk2dkh.aspx
+
+; -56-8  / +0  ret
+; -56+0  / +8  rcx 1st arg home [empty]
+; -56+8  / +16 rdx 2nd arg home [empty]
+; -56+16 / +24 r8  3rd arg home [empty]
+; -56+24 / +32 r9  4th arg home [empty]
+; -56+32 / +40     5th arg
+; -56+40 / +48     6th arg
+; -56+48 / +56     UNKNOWN SPACER (NOT RETURN VAL)
