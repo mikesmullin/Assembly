@@ -13,3 +13,7 @@ machine language, JVM bytecode, and fundamentals of hardware.
 - `bootloader/` - on BIOS, boot, and operating system assembly
 - `windows/` - on Windows process assembly (incl. OpenGL)
 - `linux_gdb/` - on Linux assembly and Asm/Disasm/Debug tooling
+
+# Related:
+
+- [mikesmullin/OperatingSystem](https://github.com/mikesmullin/OperatingSystem) repo
