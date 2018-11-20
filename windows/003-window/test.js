@@ -142,9 +142,10 @@ const build = () => {
 	asm('extern TranslateMessage');
 	asm('extern DispatchMessageA');
 	asm('extern DefWindowProcA');
-	asm('extern PostQuitMessage');
 	
 	asm(`\n; shutdown/cleanup`);
+	asm('extern DestroyWindow');
+	asm('extern PostQuitMessage');
 	asm('extern ExitProcess');
 
 	asm(`\n; error handling`);
@@ -263,7 +264,7 @@ const build = () => {
 	// see: https://docs.microsoft.com/en-us/windows/desktop/winmsg/window-styles
 	const CW_USEDEFAULT    = 0x80000000;
 	// see: https://github.com/tpn/winsdk-10/blob/master/Include/10.0.10240.0/um/WinUser.h#L4292
-	_var('CreateWindow__hwnd', 'dq');
+	_var('CreateWindow__hWnd', 'dq');
 	_var('CreateWindow__title', 'db', '"OpenGL Demo",0');
 	const WIDTH = 640;
 	const HEIGHT = 480;
@@ -284,23 +285,18 @@ const build = () => {
 			{ value: 'GetModuleHandleA__hModule', size: 'qword', comment: 'HINSTANCE hInstance' },
 			{ value: 0, size: 'qword', comment: 'LPVOID lpParam' },
 		],
-		ret: { value: '[CreateWindow__hwnd]', size: 'qword', comment: 'HWND' },
+		ret: { value: '[CreateWindow__hWnd]', size: 'qword', comment: 'HWND' },
 	}));
 
 	const IncomingMessage = istruct('IncomingMessage', STRUCTS.tagMSG, {});	
 
-	// TODO: remove these after debugging
-	_var('padding: times 4 db 0 ; not sure why padding is needed here but must find out proper alignment');
-	_var('dot', 'db', '"."');
-	_var('dash', 'db', '"-"');
-	
 	asm('Loop:');
 	const PM_REMOVE = 0x0001;
 	_var('PeekMessage_hasMsgs', 'dd');
 	asm(__ms_64_fastcall_w_error_check({ proc: 'PeekMessageA',
 		args: [
 			{ value: IncomingMessage, size: 'qword', comment: 'LPMSG lpMsg' },
-			{ value: '[CreateWindow__hwnd]', size: 'qword', comment: 'HWND hWnd' },
+			{ value: '[CreateWindow__hWnd]', size: 'qword', comment: 'HWND hWnd' },
 			{ value: 0, size: 'dword', comment: 'UINT wMsgFilterMin' },
 			{ value: 0, size: 'dword', comment: 'UINT wMsgFilterMax' },
 			{ value: PM_REMOVE, size: 'dword', comment: 'UINT wRemoveMsg = PM_REMOVE' },
@@ -310,6 +306,10 @@ const build = () => {
 	const WM_QUIT = 0x0012;
 	asm('cmp dword [PeekMessage_hasMsgs], 0 ; zero messages');
 	asm('je near Loop');
+
+	asm(printf(FormatString('debug_trace_4',
+		`"PeekMessageA has messages for CreateWindow__hWnd %1!.16llX!",10`,
+		'CreateWindow__hWnd'), Asm.Console.log));
 
 	// debug trace
 	_var('__trace_array', 'times 8 dq');
@@ -345,21 +345,24 @@ const build = () => {
 	asm(`cmp dword [${IncomingMessage}.message], ${hex(WM_QUIT)} ; WM_QUIT`);
 	asm('jne near ..@Loop__processMessage');
 	asm(printf(FormatString('debug_trace_1', `"WM_QUIT received by main Loop.",10`, 0), Asm.Console.log));
-	asm(exit(0));
+	asm('je near Loop');
+//	asm(exit(0));
 
 	asm('..@Loop__processMessage:');
+	asm(printf(FormatString('debug_trace_5', `"TranslateMessage",10`, 0), Asm.Console.log));
 	asm(__ms_64_fastcall_w_error_check({ proc: 'TranslateMessage',
 		args: [
 			{ value: IncomingMessage, size: 'qword', comment: 'LPMSG lpMsg' },
 		],
 	}));
 
+	asm(printf(FormatString('debug_trace_5a', `"DispatchMessageA",10`, 0), Asm.Console.log));
 	asm(__ms_64_fastcall_w_error_check({ proc: 'DispatchMessageA',
 		args: [
 			{ value: IncomingMessage, size: 'qword', comment: 'LPMSG lpMsg' },
 		],
 	}));
-	asm('je near Loop');
+	asm('jmp near Loop');
 
 	const WM_ACTIVATE = 0x0006;
 	const WM_SYSCOMMAND = 0x0112;
@@ -381,8 +384,8 @@ const build = () => {
 	asm('mov qword [nWndProc__uMsg], rdx');
 	asm('mov qword [nWndProc__wParam], r8');
 	asm('mov qword [nWndProc__lParam], r9');
+
 	//TODO: print every WindProc msg that gets dispatched during average program cycle
-	//asm(Console.log(nWndProc__uMsg
 
 	// switch uMsg
 	asm(`cmp rdx, ${hex(WM_ACTIVATE)}`);
@@ -391,8 +394,8 @@ const build = () => {
 	asm('je near WndProc__WM_SysCommand');
 	asm(`cmp rdx, ${hex(WM_CLOSE)}`);
 	asm('je near WndProc__WM_Close');
-	asm(`cmp rdx, ${hex(WM_DESTROY)}`);
-	asm('je near WndProc__WM_Destroy');
+	// asm(`cmp rdx, ${hex(WM_DESTROY)}`);
+	// asm('je near WndProc__WM_Destroy');
 	asm(`cmp rdx, ${hex(WM_KEYDOWN)}`);
 	asm('je near WndProc__WM_KeyDown');
 	asm(`cmp rdx, ${hex(WM_KEYUP)}`);
@@ -413,6 +416,8 @@ const build = () => {
 	asm('ret');
 
 	asm('WndProc__WM_Activate:');
+	// asm(printf(FormatString('debug_trace_6', `"WndProc",10`, 0), Asm.Console.log));
+
 	asm('xor eax, eax');
 	asm('ret');
 	asm('WndProc__WM_SysCommand:');
@@ -425,15 +430,20 @@ const build = () => {
 	asm('..@return_zero:');
 	asm('xor eax, eax');
 	asm('ret');
-	asm('WndProc__WM_Destroy:');
-	asm(printf(FormatString('debug_trace_3', `"WM_DESTROY received by WndProc.",10`, 0), Asm.Console.log));
-	asm('xor eax, eax');
-	asm('ret');
 	asm('WndProc__WM_Close:');
 	asm(printf(FormatString('debug_trace_2', `"WM_CLOSE received by WndProc.",10`, 0), Asm.Console.log));
+	asm(__ms_64_fastcall_w_error_check({ proc: 'DestroyWindow', args: [
+		{ value: '[CreateWindow__hWnd]', size: 'qword', comment: 'HWND hWnd' },
+	]}));
+	asm(printf(FormatString('debug_trace_7', `"DestroyWindow sent",10`, 0), Asm.Console.log));
+	asm('xor eax, eax');
+	asm('ret');
+	asm('WndProc__WM_Destroy:');
+	asm(printf(FormatString('debug_trace_3', `"WM_DESTROY received by WndProc.",10`, 0), Asm.Console.log));
 	asm(__ms_64_fastcall_w_error_check({ proc: 'PostQuitMessage', args: [
 		{ value: 0, size: 'dword', comment: 'int nExitCode' },
 	]}));
+	asm(printf(FormatString('debug_trace_8', `"PostQuitMessage sent",10`, 0), Asm.Console.log));
 	asm('xor eax, eax');
 	asm('ret');
 	asm('WndProc__WM_KeyDown:');

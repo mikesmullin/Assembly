@@ -10,491 +10,631 @@
     10                                  extern TranslateMessage
     11                                  extern DispatchMessageA
     12                                  extern DefWindowProcA
-    13                                  extern PostQuitMessage
-    14                                  
-    15                                  ; shutdown/cleanup
-    16                                  extern ExitProcess
-    17                                  
-    18                                  ; error handling
-    19                                  extern SetLastError
-    20                                  extern GetLastError
-    21                                  extern FormatMessageA
-    22                                  extern GetStdHandle
-    23                                  extern WriteFile
-    24                                  
-    25                                  section .data align=16
-    26 00000000 00000000                GetLastError__errCode: dd 0
-    27 00000004 00000000                Console__stderr_nStdHandle: dd 0
-    28 00000008 00000000                Console__stdout_nStdHandle: dd 0
-    29 0000000C 00<rept>                FormatMessage__tmpReturnBuffer: times 256 db 0
-    30 0000010C 00000000                FormatMessage__tmpReturnBufferLength: dd 0
-    31 00000110 00000000                Console__bytesWritten: dd 0
-    32 00000114 65343464373534352D-     Generic__uuid: db "e44d7545-f9df-418e-bc37-11ad4535d32f",0
-    32 0000011D 663964662D34313865-
-    32 00000126 2D626333372D313161-
-    32 0000012F 643435333564333266-
-    32 00000138 00                 
-    33 00000139 0000000000000000        CreateMutexA__handle: dq 0
-    34 00000141 0000000000000000        GetModuleHandleA__hModule: dq 0
-    35 00000149 0000000000000000        CreateWindow__icon: dq 0
-    36 00000151 0000000000000000        CreateWindow__cursor: dq 0
-    37                                  
-    38                                  ; struct
-    39                                  MainWindow_1: ; instanceof tagWNDCLASSEXA
-    40 00000159 50000000                MainWindow_1.cbSize dd 80 ; UINT
-    41 0000015D 23000000                MainWindow_1.style dd 0x23 ; UINT = CS_OWNDC | CS_VREDRAW | CS_HREDRAW
-    42 00000161 [D003000000000000]      MainWindow_1.lpfnWndProc dq WndProc ; WNDPROC
-    43 00000169 00000000                MainWindow_1.cbClsExtra dd 0 ; int
-    44 0000016D 00000000                MainWindow_1.cbWndExtra dd 0 ; int
-    45 00000171 [4101000000000000]      MainWindow_1.hInstance dq GetModuleHandleA__hModule ; HINSTANCE
-    46 00000179 [4901000000000000]      MainWindow_1.hIcon dq CreateWindow__icon ; HICON
-    47 00000181 [5101000000000000]      MainWindow_1.hCursor dq CreateWindow__cursor ; HCURSOR
-    48 00000189 0500000000000000        MainWindow_1.hbrBackground dq 5 ; HBRUSH
-    49 00000191 0000000000000000        MainWindow_1.lpszMenuName dq 0 ; LPCSTR
-    50 00000199 [1401000000000000]      MainWindow_1.lpszClassName dq Generic__uuid ; LPCSTR
-    51 000001A1 0000000000000000        MainWindow_1.hIconSm dq 0 ; HICON
-    52                                  
-    53 000001A9 0000000000000000        CreateWindow__atom_name: dq 0
-    54 000001B1 0000000000000000        CreateWindow__hwnd: dq 0
-    55 000001B9 4F70656E474C204465-     CreateWindow__title: db "OpenGL Demo",0
-    55 000001C2 6D6F00             
-    56                                  
-    57                                  ; struct
-    58                                  IncomingMessage_1: ; instanceof tagMSG
-    59 000001C5 0000000000000000        IncomingMessage_1.hwnd dq 0 ; HWND
-    60 000001CD 00000000                IncomingMessage_1.message dd 0 ; UINT
-    61 000001D1 0000000000000000        IncomingMessage_1.wParam dq 0 ; WPARAM
-    62 000001D9 0000000000000000        IncomingMessage_1.lParam dq 0 ; LPARAM
-    63 000001E1 00000000                IncomingMessage_1.time dd 0 ; dword
-    64 000001E5 00000000                IncomingMessage_1.pt.x dd 0 ; dword
-    65 000001E9 00000000                IncomingMessage_1.pt.y dd 0 ; dword
-    66 000001ED 00000000                IncomingMessage_1.lPrivate dd 0 ; dword
-    67                                  
-    68 000001F1 00<rept>                padding: times 4 db 0 ; not sure why padding is needed here but must find out proper alignment: db 0
-    69 000001F5 2E                      dot: db "."
-    70 000001F6 2D                      dash: db "-"
-    71 000001F7 00000000                PeekMessage_hasMsgs: dd 0
-    72 000001FB 0000000000000000-       __trace_array: times 8 dq 0
-    72 000001FB <rept>             
-    73 0000023B 0A4D65737361676520-     PeekMessage_msgIdFormatString: db 10,"Message received:",10,"  hwnd: %1!.16llX!",10,"  message: %2!.4llX!",10,"  wParam: %3!.16llX!",10,"  lParam: %4!.16llX!",10,"  time: %5!.16llX!",10,"  pt.x: %6!lu!",10,"  pt.y: 
-    73 00000244 72656365697665643A-
-    73 0000024D 0A202068776E643A20-
-    73 00000256 2531212E31366C6C58-
-    73 0000025F 210A20206D65737361-
-    73 00000268 67653A202532212E34-
-    73 00000271 6C6C58210A20207750-
-    73 0000027A 6172616D3A20253321-
-    73 00000283 2E31366C6C58210A20-
-    73 0000028C 206C506172616D3A20-
-    73 00000295 2534212E31366C6C58-
-    73 0000029E 210A202074696D653A-
-    73 000002A7 202535212E31366C6C-
-    73 000002B0 58210A202070742E78-
-    73 000002B9 3A202536216C75210A-
-    73 000002C2 202070742E793A2025-
-    73 000002CB 37216C75210A20206C-
-    73 000002D4 507269766174653A20-
-    73 000002DD 2538212E386C6C5821-
-    73 000002E6 0A00               
-    74 000002E8 574D5F515549542072-     debug_trace_1: db "WM_QUIT received by main Loop.",10,0
-    74 000002F1 656365697665642062-
-    74 000002FA 79206D61696E204C6F-
-    74 00000303 6F702E0A00         
-    75 00000308 0000000000000000        nWndProc__hWnd: dq 0
-    76 00000310 0000000000000000        nWndProc__uMsg: dq 0
-    77 00000318 0000000000000000        nWndProc__wParam: dq 0
-    78 00000320 0000000000000000        nWndProc__lParam: dq 0
-    79 00000328 0000000000000000        nWndProc__return: dq 0
-    80 00000330 574D5F44455354524F-     debug_trace_3: db "WM_DESTROY received by WndProc.",10,0
-    80 00000339 592072656365697665-
-    80 00000342 6420627920576E6450-
-    80 0000034B 726F632E0A00       
-    81 00000351 574D5F434C4F534520-     debug_trace_2: db "WM_CLOSE received by WndProc.",10,0
-    81 0000035A 726563656976656420-
-    81 00000363 627920576E6450726F-
-    81 0000036C 632E0A00           
-    82                                  
-    83                                  section .text align=16
-    84                                  global main
-    85                                  main:
-    86                                  
-    87                                  
-    88                                  ; get pointers to stdout/stderr pipes
-    89 00000000 E8BF050000              call near GetLastError__prologue_reset
-    90                                  ; MS __fastcall x64 ABI
-    91 00000005 4883EC28                sub rsp, 40 ; allocate shadow space
-    92 00000009 B9F4FFFFFF              mov dword ecx, -12 ; 1st: DWORD nStdHandle = STD_ERROR_HANDLE
-    93 0000000E E8(00000000)                call GetStdHandle
-    94 00000013 890425[04000000]        mov dword [Console__stderr_nStdHandle], eax ; return 
-    95 0000001A 4883C428                add rsp, 40 ; deallocate shadow space
-    96 0000001E E8B4050000              call near GetLastError__epilogue_check
-    97                                  
-    98 00000023 E89C050000              call near GetLastError__prologue_reset
-    99                                  ; MS __fastcall x64 ABI
-   100 00000028 4883EC28                sub rsp, 40 ; allocate shadow space
-   101 0000002C B9F5FFFFFF              mov dword ecx, -11 ; 1st: DWORD nStdHandle = STD_OUTPUT_HANDLE
-   102 00000031 E8(00000000)                call GetStdHandle
-   103 00000036 890425[08000000]        mov dword [Console__stdout_nStdHandle], eax ; return 
-   104 0000003D 4883C428                add rsp, 40 ; deallocate shadow space
-   105 00000041 E891050000              call near GetLastError__epilogue_check
-   106                                  
-   107                                  
-   108 00000046 E879050000              call near GetLastError__prologue_reset
-   109                                  ; MS __fastcall x64 ABI
-   110 0000004B 4883EC28                sub rsp, 40 ; allocate shadow space
-   111 0000004F 41B8[14010000]          mov dword r8d, Generic__uuid ; 3rd: LPCSTR lpName
-   112 00000055 BA01000000              mov dword edx, 1 ; 2nd: BOOL bInitialOwner
-   113 0000005A B900000000              mov dword ecx, 0 ; 1st: LPSECURITY_ATTRIBUTES lpMutexAttributes
-   114 0000005F E8(00000000)                call CreateMutexA
-   115 00000064 48890425[39010000]      mov qword [CreateMutexA__handle], rax ; return HANDLE
-   116 0000006C 4883C428                add rsp, 40 ; deallocate shadow space
-   117 00000070 E862050000              call near GetLastError__epilogue_check
-   118                                  
-   119 00000075 E84A050000              call near GetLastError__prologue_reset
-   120                                  ; MS __fastcall x64 ABI
-   121 0000007A 4883EC28                sub rsp, 40 ; allocate shadow space
-   122 0000007E B900000000              mov dword ecx, 0 ; 1st: LPCSTR lpModuleName
-   123 00000083 E8(00000000)                call GetModuleHandleA
-   124 00000088 48890425[41010000]      mov qword [GetModuleHandleA__hModule], rax ; return HMODULE *phModule
-   125 00000090 4883C428                add rsp, 40 ; deallocate shadow space
-   126 00000094 E83E050000              call near GetLastError__epilogue_check
-   127                                  
-   128 00000099 E826050000              call near GetLastError__prologue_reset
-   129                                  ; MS __fastcall x64 ABI
-   130 0000009E 4883EC38                sub rsp, 56 ; allocate shadow space
-   131 000000A2 C744242840800000        mov dword [rsp + 40], 0x8040 ; 6th: UINT fuLoad = LR_SHARED | LR_DEFAULTSIZE
-   132 000000AA C744242000000000        mov dword [rsp + 32], 0 ; 5th: int cy
-   133 000000B2 41B900000000            mov dword r9d, 0 ; 4th: int cx
-   134 000000B8 41B801000000            mov dword r8d, 1 ; 3rd: UINT type = IMAGE_ICON
-   135 000000BE BA057F0000              mov dword edx, 32517 ; 2nd: LPCSTR name = OIC_WINLOGO
-   136 000000C3 B900000000              mov dword ecx, 0 ; 1st: HINSTANCE hInst
-   137 000000C8 E8(00000000)                call LoadImageA
-   138 000000CD 48890425[49010000]      mov qword [CreateWindow__icon], rax ; return HANDLE
-   139 000000D5 4883C438                add rsp, 56 ; deallocate shadow space
-   140 000000D9 E8F9040000              call near GetLastError__epilogue_check
-   141                                  
-   142 000000DE E8E1040000              call near GetLastError__prologue_reset
-   143                                  ; MS __fastcall x64 ABI
-   144 000000E3 4883EC38                sub rsp, 56 ; allocate shadow space
-   145 000000E7 C744242840800000        mov dword [rsp + 40], 0x8040 ; 6th: UINT fuLoad = LR_SHARED | LR_DEFAULTSIZE
-   146 000000EF C744242000000000        mov dword [rsp + 32], 0 ; 5th: int cy
-   147 000000F7 41B900000000            mov dword r9d, 0 ; 4th: int cx
-   148 000000FD 41B802000000            mov dword r8d, 2 ; 3rd: UINT type = IMAGE_CURSOR
-   149 00000103 BA007F0000              mov dword edx, 32512 ; 2nd: LPCSTR name = IDC_ARROW
-   150 00000108 B900000000              mov dword ecx, 0 ; 1st: HINSTANCE hInst
-   151 0000010D E8(00000000)                call LoadImageA
-   152 00000112 48890425[51010000]      mov qword [CreateWindow__cursor], rax ; return HANDLE
-   153 0000011A 4883C438                add rsp, 56 ; deallocate shadow space
-   154 0000011E E8B4040000              call near GetLastError__epilogue_check
-   155                                  
-   156 00000123 E89C040000              call near GetLastError__prologue_reset
-   157                                  ; MS __fastcall x64 ABI
-   158 00000128 4883EC28                sub rsp, 40 ; allocate shadow space
-   159 0000012C 48B9-                   mov qword rcx, MainWindow_1 ; 1st: WNDCLASSEXA *Arg1
-   159 0000012E [5901000000000000] 
-   160 00000136 E8(00000000)                call RegisterClassExA
-   161 0000013B 48890425[A9010000]      mov qword [CreateWindow__atom_name], rax ; return 
-   162 00000143 4883C428                add rsp, 40 ; deallocate shadow space
-   163 00000147 E88B040000              call near GetLastError__epilogue_check
-   164                                  
-   165 0000014C E873040000              call near GetLastError__prologue_reset
-   166                                  ; MS __fastcall x64 ABI
-   167 00000151 4883EC68                sub rsp, 104 ; allocate shadow space
-   168 00000155 48C744245800000000      mov qword [rsp + 88], 0 ; 12th: LPVOID lpParam
-   169 0000015E 48C7442450-             mov qword [rsp + 80], GetModuleHandleA__hModule ; 11th: HINSTANCE hInstance
-   169 00000163 [41010000]         
-   170 00000167 48C744244800000000      mov qword [rsp + 72], 0 ; 10th: HMENU hMenu
-   171 00000170 48C744244000000000      mov qword [rsp + 64], 0 ; 9th: HWND hWndParent
-   172 00000179 C7442438E0010000        mov dword [rsp + 56], 480 ; 8th: int nHeight
-   173 00000181 C744243080020000        mov dword [rsp + 48], 640 ; 7th: int nWidth
-   174 00000189 C744242800000080        mov dword [rsp + 40], 0x80000000 ; 6th: int Y
-   175 00000191 C744242000000080        mov dword [rsp + 32], 0x80000000 ; 5th: int X
-   176 00000199 41B90000CF16            mov qword r9, 0x16cf0000 ; 4th: DWORD dwStyle = WS_OVERLAPPEDWINDOW | WS_VISIBLE | WS_CLIPCHILDREN | WS_CLIPSIBLINGS
-   177 0000019F 49B8-                   mov qword r8, CreateWindow__title ; 3rd: LPCSTR lpWindowName
-   177 000001A1 [B901000000000000] 
-   178 000001A9 48BA-                   mov qword rdx, Generic__uuid ; 2nd: LPCSTR lpClassName
-   178 000001AB [1401000000000000] 
-   179 000001B3 B900030000              mov qword rcx, 768 ; 1st: DWORD dwExStyle = WS_EX_OVERLAPPEDWINDOW
-   180 000001B8 E8(00000000)                call CreateWindowExA
-   181 000001BD 48890425[B1010000]      mov qword [CreateWindow__hwnd], rax ; return HWND
-   182 000001C5 4883C468                add rsp, 104 ; deallocate shadow space
-   183 000001C9 E809040000              call near GetLastError__epilogue_check
-   184                                  
-   185                                  Loop:
-   186 000001CE E8F1030000              call near GetLastError__prologue_reset
-   187                                  ; MS __fastcall x64 ABI
-   188 000001D3 4883EC30                sub rsp, 48 ; allocate shadow space
-   189 000001D7 C744242001000000        mov dword [rsp + 32], 1 ; 5th: UINT wRemoveMsg = PM_REMOVE
-   190 000001DF 41B900000000            mov dword r9d, 0 ; 4th: UINT wMsgFilterMax
-   191 000001E5 41B800000000            mov dword r8d, 0 ; 3rd: UINT wMsgFilterMin
-   192 000001EB 488B1425[B1010000]      mov qword rdx, [CreateWindow__hwnd] ; 2nd: HWND hWnd
-   193 000001F3 48B9-                   mov qword rcx, IncomingMessage_1 ; 1st: LPMSG lpMsg
-   193 000001F5 [C501000000000000] 
-   194 000001FD E8(00000000)                call PeekMessageA
-   195 00000202 890425[F7010000]        mov dword [PeekMessage_hasMsgs], eax ; return BOOL
-   196 00000209 4883C430                add rsp, 48 ; deallocate shadow space
-   197 0000020D E8C5030000              call near GetLastError__epilogue_check
-   198                                  
-   199 00000212 833C25[F7010000]00      cmp dword [PeekMessage_hasMsgs], 0 ; zero messages
-   200 0000021A 0F84AEFFFFFF            je near Loop
-   201 00000220 488B0425[C5010000]      mov qword rax, [IncomingMessage_1.hwnd]
-   202 00000228 48890425[FB010000]      mov qword [__trace_array + 0], rax
-   203 00000230 8B0425[CD010000]        mov dword eax, [IncomingMessage_1.message]
-   204 00000237 890425[03020000]        mov dword [__trace_array + 8], eax
-   205 0000023E 488B0425[D1010000]      mov qword rax, [IncomingMessage_1.wParam]
-   206 00000246 48890425[0B020000]      mov qword [__trace_array + 16], rax
-   207 0000024E 488B0425[D9010000]      mov qword rax, [IncomingMessage_1.lParam]
-   208 00000256 48890425[13020000]      mov qword [__trace_array + 24], rax
-   209 0000025E 8B0425[E5010000]        mov dword eax, [IncomingMessage_1.pt.x]
-   210 00000265 890425[1B020000]        mov dword [__trace_array + 32], eax
-   211 0000026C 8B0425[E9010000]        mov dword eax, [IncomingMessage_1.pt.y]
-   212 00000273 890425[23020000]        mov dword [__trace_array + 40], eax
-   213 0000027A 8B0425[ED010000]        mov dword eax, [IncomingMessage_1.lPrivate]
-   214 00000281 890425[2B020000]        mov dword [__trace_array + 48], eax
-   215                                  ; MS __fastcall x64 ABI
-   216 00000288 4883EC40                sub rsp, 64 ; allocate shadow space
-   217 0000028C 48C7442430-             mov qword [rsp + 48], __trace_array ; 7th: va_list *Arguments
-   217 00000291 [FB010000]         
-   218 00000295 48C744242800010000      mov qword [rsp + 40], 256 ; 6th: DWORD nSize
-   219 0000029E 48C7442420-             mov qword [rsp + 32], FormatMessage__tmpReturnBuffer ; 5th: LPSTR lpBuffer
-   219 000002A3 [0C000000]         
-   220 000002A7 41B900000000            mov dword r9d, 0x0 ; 4th: DWORD dwLanguageId
-   221 000002AD 41B800000000            mov dword r8d, 0 ; 3rd: DWORD dwMessageId
-   222 000002B3 BA[3B020000]            mov dword edx, PeekMessage_msgIdFormatString ; 2nd: LPCVOID lpSource
-   223 000002B8 B900240000              mov dword ecx, 0x2400 ; 1st: DWORD dwFlags
-   224 000002BD E8(00000000)                call FormatMessageA
-   225 000002C2 890425[0C010000]        mov dword [FormatMessage__tmpReturnBufferLength], eax ; return DWORD TCHARs written
-   226 000002C9 4883C440                add rsp, 64 ; deallocate shadow space
-   227                                  
-   228                                  ; MS __fastcall x64 ABI
-   229 000002CD 4883EC30                sub rsp, 48 ; allocate shadow space
-   230 000002D1 C744242000000000        mov dword [rsp + 32], 0 ; 5th: LPOVERLAPPED lpOverlapped
-   231 000002D9 41B9[10010000]          mov dword r9d, Console__bytesWritten ; 4th: LPDWORD lpNumberOfBytesWritten
-   232 000002DF 448B0425[0C010000]      mov dword r8d, [FormatMessage__tmpReturnBufferLength] ; 3rd: DWORD nNumberOfBytesToWrite
-   233 000002E7 BA[0C000000]            mov dword edx, FormatMessage__tmpReturnBuffer ; 2nd: LPCVOID lpBuffer
-   234 000002EC 8B0C25[08000000]        mov dword ecx, [Console__stdout_nStdHandle] ; 1st: HANDLE hFile
-   235 000002F3 E8(00000000)                call WriteFile
-   236 000002F8 4883C430                add rsp, 48 ; deallocate shadow space
-   237                                  
-   238 000002FC 833C25[CD010000]12      cmp dword [IncomingMessage_1.message], 0x12 ; WM_QUIT
-   239 00000304 0F857E000000            jne near ..@Loop__processMessage
-   240                                  ; MS __fastcall x64 ABI
-   241 0000030A 4883EC40                sub rsp, 64 ; allocate shadow space
-   242 0000030E 48C744243000000000      mov qword [rsp + 48], 0 ; 7th: va_list *Arguments
-   243 00000317 48C744242800010000      mov qword [rsp + 40], 256 ; 6th: DWORD nSize
-   244 00000320 48C7442420-             mov qword [rsp + 32], FormatMessage__tmpReturnBuffer ; 5th: LPSTR lpBuffer
-   244 00000325 [0C000000]         
-   245 00000329 41B900000000            mov dword r9d, 0x0 ; 4th: DWORD dwLanguageId
-   246 0000032F 41B800000000            mov dword r8d, 0 ; 3rd: DWORD dwMessageId
-   247 00000335 BA[E8020000]            mov dword edx, debug_trace_1 ; 2nd: LPCVOID lpSource
-   248 0000033A B900240000              mov dword ecx, 0x2400 ; 1st: DWORD dwFlags
-   249 0000033F E8(00000000)                call FormatMessageA
-   250 00000344 890425[0C010000]        mov dword [FormatMessage__tmpReturnBufferLength], eax ; return DWORD TCHARs written
-   251 0000034B 4883C440                add rsp, 64 ; deallocate shadow space
-   252                                  
-   253                                  ; MS __fastcall x64 ABI
-   254 0000034F 4883EC30                sub rsp, 48 ; allocate shadow space
-   255 00000353 C744242000000000        mov dword [rsp + 32], 0 ; 5th: LPOVERLAPPED lpOverlapped
-   256 0000035B 41B9[10010000]          mov dword r9d, Console__bytesWritten ; 4th: LPDWORD lpNumberOfBytesWritten
-   257 00000361 448B0425[0C010000]      mov dword r8d, [FormatMessage__tmpReturnBufferLength] ; 3rd: DWORD nNumberOfBytesToWrite
-   258 00000369 BA[0C000000]            mov dword edx, FormatMessage__tmpReturnBuffer ; 2nd: LPCVOID lpBuffer
-   259 0000036E 8B0C25[08000000]        mov dword ecx, [Console__stdout_nStdHandle] ; 1st: HANDLE hFile
-   260 00000375 E8(00000000)                call WriteFile
-   261 0000037A 4883C430                add rsp, 48 ; deallocate shadow space
-   262                                  
-   263 0000037E B900000000              mov ecx, 0 ; UINT uExitCode
-   264 00000383 E9EC020000              jmp near Exit
-   265                                  
-   266                                  ..@Loop__processMessage:
-   267 00000388 E837020000              call near GetLastError__prologue_reset
-   268                                  ; MS __fastcall x64 ABI
-   269 0000038D 4883EC28                sub rsp, 40 ; allocate shadow space
-   270 00000391 48B9-                   mov qword rcx, IncomingMessage_1 ; 1st: LPMSG lpMsg
-   270 00000393 [C501000000000000] 
-   271 0000039B E8(00000000)                call TranslateMessage
-   272 000003A0 4883C428                add rsp, 40 ; deallocate shadow space
-   273 000003A4 E82E020000              call near GetLastError__epilogue_check
-   274                                  
-   275 000003A9 E816020000              call near GetLastError__prologue_reset
-   276                                  ; MS __fastcall x64 ABI
-   277 000003AE 4883EC28                sub rsp, 40 ; allocate shadow space
-   278 000003B2 48B9-                   mov qword rcx, IncomingMessage_1 ; 1st: LPMSG lpMsg
-   278 000003B4 [C501000000000000] 
-   279 000003BC E8(00000000)                call DispatchMessageA
-   280 000003C1 4883C428                add rsp, 40 ; deallocate shadow space
-   281 000003C5 E80D020000              call near GetLastError__epilogue_check
-   282                                  
-   283 000003CA 0F84FEFDFFFF            je near Loop
-   284                                  
-   285                                  WndProc:
-   286 000003D0 48890C25[08030000]      mov qword [nWndProc__hWnd], rcx
-   287 000003D8 48891425[10030000]      mov qword [nWndProc__uMsg], rdx
-   288 000003E0 4C890425[18030000]      mov qword [nWndProc__wParam], r8
-   289 000003E8 4C890C25[20030000]      mov qword [nWndProc__lParam], r9
-   290 000003F0 4883FA06                cmp rdx, 0x6
-   291 000003F4 0F848D000000            je near WndProc__WM_Activate
-   292 000003FA 4881FA12010000          cmp rdx, 0x112
-   293 00000401 0F8483000000            je near WndProc__WM_SysCommand
-   294 00000407 4883FA10                cmp rdx, 0x10
-   295 0000040B 0F8417010000            je near WndProc__WM_Close
-   296 00000411 4883FA02                cmp rdx, 0x2
-   297 00000415 0F8496000000            je near WndProc__WM_Destroy
-   298 0000041B 4881FA00010000          cmp rdx, 0x100
-   299 00000422 0F8493010000            je near WndProc__WM_KeyDown
-   300 00000428 4881FA01010000          cmp rdx, 0x101
-   301 0000042F 0F8489010000            je near WndProc__WM_KeyUp
-   302 00000435 4883FA05                cmp rdx, 0x5
-   303 00000439 0F8482010000            je near WndProc__WM_Size
-   304                                  ..@WndProc__default:
-   305 0000043F E880010000              call near GetLastError__prologue_reset
-   306                                  ; MS __fastcall x64 ABI
-   307 00000444 4883EC28                sub rsp, 40 ; allocate shadow space
-   308 00000448 4C8B0C25[20030000]      mov qword r9, [nWndProc__lParam] ; 4th: 
-   309 00000450 4C8B0425[18030000]      mov qword r8, [nWndProc__wParam] ; 3rd: 
-   310 00000458 488B1425[10030000]      mov qword rdx, [nWndProc__uMsg] ; 2nd: 
-   311 00000460 488B0C25[08030000]      mov qword rcx, [nWndProc__hWnd] ; 1st: 
-   312 00000468 E8(00000000)                call DefWindowProcA
-   313 0000046D 48890425[28030000]      mov qword [nWndProc__return], rax ; return 
-   314 00000475 4883C428                add rsp, 40 ; deallocate shadow space
-   315 00000479 E859010000              call near GetLastError__epilogue_check
-   316                                  
-   317 0000047E 488B0425[28030000]      mov qword rax, [nWndProc__return]
-   318 00000486 C3                      ret
-   319                                  WndProc__WM_Activate:
-   320 00000487 31C0                    xor eax, eax
-   321 00000489 C3                      ret
-   322                                  WndProc__WM_SysCommand:
-   323 0000048A 8B1C25[18030000]        mov ebx, [nWndProc__wParam]
-   324 00000491 81FB40F10000            cmp ebx, 0xf140
-   325 00000497 0F8411000000            je near ..@return_zero
-   326 0000049D 81FB70F10000            cmp ebx, 0xf170
-   327 000004A3 0F8405000000            je near ..@return_zero
-   328 000004A9 E991FFFFFF              jmp near ..@WndProc__default
-   329                                  ..@return_zero:
-   330 000004AE 31C0                    xor eax, eax
-   331 000004B0 C3                      ret
-   332                                  WndProc__WM_Destroy:
-   333                                  ; MS __fastcall x64 ABI
-   334 000004B1 4883EC40                sub rsp, 64 ; allocate shadow space
-   335 000004B5 48C744243000000000      mov qword [rsp + 48], 0 ; 7th: va_list *Arguments
-   336 000004BE 48C744242800010000      mov qword [rsp + 40], 256 ; 6th: DWORD nSize
-   337 000004C7 48C7442420-             mov qword [rsp + 32], FormatMessage__tmpReturnBuffer ; 5th: LPSTR lpBuffer
-   337 000004CC [0C000000]         
-   338 000004D0 41B900000000            mov dword r9d, 0x0 ; 4th: DWORD dwLanguageId
-   339 000004D6 41B800000000            mov dword r8d, 0 ; 3rd: DWORD dwMessageId
-   340 000004DC BA[30030000]            mov dword edx, debug_trace_3 ; 2nd: LPCVOID lpSource
-   341 000004E1 B900240000              mov dword ecx, 0x2400 ; 1st: DWORD dwFlags
-   342 000004E6 E8(00000000)                call FormatMessageA
-   343 000004EB 890425[0C010000]        mov dword [FormatMessage__tmpReturnBufferLength], eax ; return DWORD TCHARs written
-   344 000004F2 4883C440                add rsp, 64 ; deallocate shadow space
-   345                                  
+    13                                  
+    14                                  ; shutdown/cleanup
+    15                                  extern DestroyWindow
+    16                                  extern PostQuitMessage
+    17                                  extern ExitProcess
+    18                                  
+    19                                  ; error handling
+    20                                  extern SetLastError
+    21                                  extern GetLastError
+    22                                  extern FormatMessageA
+    23                                  extern GetStdHandle
+    24                                  extern WriteFile
+    25                                  
+    26                                  section .data align=16
+    27 00000000 00000000                GetLastError__errCode: dd 0
+    28 00000004 00000000                Console__stderr_nStdHandle: dd 0
+    29 00000008 00000000                Console__stdout_nStdHandle: dd 0
+    30 0000000C 00<rept>                FormatMessage__tmpReturnBuffer: times 256 db 0
+    31 0000010C 00000000                FormatMessage__tmpReturnBufferLength: dd 0
+    32 00000110 00000000                Console__bytesWritten: dd 0
+    33 00000114 65343464373534352D-     Generic__uuid: db "e44d7545-f9df-418e-bc37-11ad4535d32f",0
+    33 0000011D 663964662D34313865-
+    33 00000126 2D626333372D313161-
+    33 0000012F 643435333564333266-
+    33 00000138 00                 
+    34 00000139 0000000000000000        CreateMutexA__handle: dq 0
+    35 00000141 0000000000000000        GetModuleHandleA__hModule: dq 0
+    36 00000149 0000000000000000        CreateWindow__icon: dq 0
+    37 00000151 0000000000000000        CreateWindow__cursor: dq 0
+    38                                  
+    39                                  ; struct
+    40                                  MainWindow_1: ; instanceof tagWNDCLASSEXA
+    41 00000159 50000000                MainWindow_1.cbSize dd 80 ; UINT
+    42 0000015D 23000000                MainWindow_1.style dd 0x23 ; UINT = CS_OWNDC | CS_VREDRAW | CS_HREDRAW
+    43 00000161 [2705000000000000]      MainWindow_1.lpfnWndProc dq WndProc ; WNDPROC
+    44 00000169 00000000                MainWindow_1.cbClsExtra dd 0 ; int
+    45 0000016D 00000000                MainWindow_1.cbWndExtra dd 0 ; int
+    46 00000171 [4101000000000000]      MainWindow_1.hInstance dq GetModuleHandleA__hModule ; HINSTANCE
+    47 00000179 [4901000000000000]      MainWindow_1.hIcon dq CreateWindow__icon ; HICON
+    48 00000181 [5101000000000000]      MainWindow_1.hCursor dq CreateWindow__cursor ; HCURSOR
+    49 00000189 0500000000000000        MainWindow_1.hbrBackground dq 5 ; HBRUSH
+    50 00000191 0000000000000000        MainWindow_1.lpszMenuName dq 0 ; LPCSTR
+    51 00000199 [1401000000000000]      MainWindow_1.lpszClassName dq Generic__uuid ; LPCSTR
+    52 000001A1 0000000000000000        MainWindow_1.hIconSm dq 0 ; HICON
+    53                                  
+    54 000001A9 0000000000000000        CreateWindow__atom_name: dq 0
+    55 000001B1 0000000000000000        CreateWindow__hWnd: dq 0
+    56 000001B9 4F70656E474C204465-     CreateWindow__title: db "OpenGL Demo",0
+    56 000001C2 6D6F00             
+    57                                  
+    58                                  ; struct
+    59                                  IncomingMessage_1: ; instanceof tagMSG
+    60 000001C5 0000000000000000        IncomingMessage_1.hwnd dq 0 ; HWND
+    61 000001CD 00000000                IncomingMessage_1.message dd 0 ; UINT
+    62 000001D1 0000000000000000        IncomingMessage_1.wParam dq 0 ; WPARAM
+    63 000001D9 0000000000000000        IncomingMessage_1.lParam dq 0 ; LPARAM
+    64 000001E1 00000000                IncomingMessage_1.time dd 0 ; dword
+    65 000001E5 00000000                IncomingMessage_1.pt.x dd 0 ; dword
+    66 000001E9 00000000                IncomingMessage_1.pt.y dd 0 ; dword
+    67 000001ED 00000000                IncomingMessage_1.lPrivate dd 0 ; dword
+    68                                  
+    69 000001F1 00000000                PeekMessage_hasMsgs: dd 0
+    70 000001F5 5065656B4D65737361-     debug_trace_4: db "PeekMessageA has messages for CreateWindow__hWnd %1!.16llX!",10,0
+    70 000001FE 67654120686173206D-
+    70 00000207 657373616765732066-
+    70 00000210 6F7220437265617465-
+    70 00000219 57696E646F775F5F68-
+    70 00000222 576E64202531212E31-
+    70 0000022B 366C6C58210A00     
+    71 00000232 0000000000000000-       __trace_array: times 8 dq 0
+    71 00000232 <rept>             
+    72 00000272 0A4D65737361676520-     PeekMessage_msgIdFormatString: db 10,"Message received:",10,"  hwnd: %1!.16llX!",10,"  message: %2!.4llX!",10,"  wParam: %3!.16llX!",10,"  lParam: %4!.16llX!",10,"  time: %5!.16llX!",10,"  pt.x: %6!lu!",10,"  pt.y: 
+    72 0000027B 72656365697665643A-
+    72 00000284 0A202068776E643A20-
+    72 0000028D 2531212E31366C6C58-
+    72 00000296 210A20206D65737361-
+    72 0000029F 67653A202532212E34-
+    72 000002A8 6C6C58210A20207750-
+    72 000002B1 6172616D3A20253321-
+    72 000002BA 2E31366C6C58210A20-
+    72 000002C3 206C506172616D3A20-
+    72 000002CC 2534212E31366C6C58-
+    72 000002D5 210A202074696D653A-
+    72 000002DE 202535212E31366C6C-
+    72 000002E7 58210A202070742E78-
+    72 000002F0 3A202536216C75210A-
+    72 000002F9 202070742E793A2025-
+    72 00000302 37216C75210A20206C-
+    72 0000030B 507269766174653A20-
+    72 00000314 2538212E386C6C5821-
+    72 0000031D 0A00               
+    73 0000031F 574D5F515549542072-     debug_trace_1: db "WM_QUIT received by main Loop.",10,0
+    73 00000328 656365697665642062-
+    73 00000331 79206D61696E204C6F-
+    73 0000033A 6F702E0A00         
+    74 0000033F 5472616E736C617465-     debug_trace_5: db "TranslateMessage",10,0
+    74 00000348 4D6573736167650A00 
+    75 00000351 44697370617463684D-     debug_trace_5a: db "DispatchMessageA",10,0
+    75 0000035A 657373616765410A00 
+    76 00000363 0000000000000000        nWndProc__hWnd: dq 0
+    77 0000036B 0000000000000000        nWndProc__uMsg: dq 0
+    78 00000373 0000000000000000        nWndProc__wParam: dq 0
+    79 0000037B 0000000000000000        nWndProc__lParam: dq 0
+    80 00000383 0000000000000000        nWndProc__return: dq 0
+    81 0000038B 574D5F434C4F534520-     debug_trace_2: db "WM_CLOSE received by WndProc.",10,0
+    81 00000394 726563656976656420-
+    81 0000039D 627920576E6450726F-
+    81 000003A6 632E0A00           
+    82 000003AA 44657374726F795769-     debug_trace_7: db "DestroyWindow sent",10,0
+    82 000003B3 6E646F772073656E74-
+    82 000003BC 0A00               
+    83 000003BE 574D5F44455354524F-     debug_trace_3: db "WM_DESTROY received by WndProc.",10,0
+    83 000003C7 592072656365697665-
+    83 000003D0 6420627920576E6450-
+    83 000003D9 726F632E0A00       
+    84 000003DF 506F7374517569744D-     debug_trace_8: db "PostQuitMessage sent",10,0
+    84 000003E8 657373616765207365-
+    84 000003F1 6E740A00           
+    85                                  
+    86                                  section .text align=16
+    87                                  global main
+    88                                  main:
+    89                                  
+    90                                  
+    91                                  ; get pointers to stdout/stderr pipes
+    92 00000000 E813080000              call near GetLastError__prologue_reset
+    93                                  ; MS __fastcall x64 ABI
+    94 00000005 4883EC28                sub rsp, 40 ; allocate shadow space
+    95 00000009 B9F4FFFFFF              mov dword ecx, -12 ; 1st: DWORD nStdHandle = STD_ERROR_HANDLE
+    96 0000000E E8(00000000)                call GetStdHandle
+    97 00000013 890425[04000000]        mov dword [Console__stderr_nStdHandle], eax ; return 
+    98 0000001A 4883C428                add rsp, 40 ; deallocate shadow space
+    99 0000001E E808080000              call near GetLastError__epilogue_check
+   100                                  
+   101 00000023 E8F0070000              call near GetLastError__prologue_reset
+   102                                  ; MS __fastcall x64 ABI
+   103 00000028 4883EC28                sub rsp, 40 ; allocate shadow space
+   104 0000002C B9F5FFFFFF              mov dword ecx, -11 ; 1st: DWORD nStdHandle = STD_OUTPUT_HANDLE
+   105 00000031 E8(00000000)                call GetStdHandle
+   106 00000036 890425[08000000]        mov dword [Console__stdout_nStdHandle], eax ; return 
+   107 0000003D 4883C428                add rsp, 40 ; deallocate shadow space
+   108 00000041 E8E5070000              call near GetLastError__epilogue_check
+   109                                  
+   110                                  
+   111 00000046 E8CD070000              call near GetLastError__prologue_reset
+   112                                  ; MS __fastcall x64 ABI
+   113 0000004B 4883EC28                sub rsp, 40 ; allocate shadow space
+   114 0000004F 41B8[14010000]          mov dword r8d, Generic__uuid ; 3rd: LPCSTR lpName
+   115 00000055 BA01000000              mov dword edx, 1 ; 2nd: BOOL bInitialOwner
+   116 0000005A B900000000              mov dword ecx, 0 ; 1st: LPSECURITY_ATTRIBUTES lpMutexAttributes
+   117 0000005F E8(00000000)                call CreateMutexA
+   118 00000064 48890425[39010000]      mov qword [CreateMutexA__handle], rax ; return HANDLE
+   119 0000006C 4883C428                add rsp, 40 ; deallocate shadow space
+   120 00000070 E8B6070000              call near GetLastError__epilogue_check
+   121                                  
+   122 00000075 E89E070000              call near GetLastError__prologue_reset
+   123                                  ; MS __fastcall x64 ABI
+   124 0000007A 4883EC28                sub rsp, 40 ; allocate shadow space
+   125 0000007E B900000000              mov dword ecx, 0 ; 1st: LPCSTR lpModuleName
+   126 00000083 E8(00000000)                call GetModuleHandleA
+   127 00000088 48890425[41010000]      mov qword [GetModuleHandleA__hModule], rax ; return HMODULE *phModule
+   128 00000090 4883C428                add rsp, 40 ; deallocate shadow space
+   129 00000094 E892070000              call near GetLastError__epilogue_check
+   130                                  
+   131 00000099 E87A070000              call near GetLastError__prologue_reset
+   132                                  ; MS __fastcall x64 ABI
+   133 0000009E 4883EC38                sub rsp, 56 ; allocate shadow space
+   134 000000A2 C744242840800000        mov dword [rsp + 40], 0x8040 ; 6th: UINT fuLoad = LR_SHARED | LR_DEFAULTSIZE
+   135 000000AA C744242000000000        mov dword [rsp + 32], 0 ; 5th: int cy
+   136 000000B2 41B900000000            mov dword r9d, 0 ; 4th: int cx
+   137 000000B8 41B801000000            mov dword r8d, 1 ; 3rd: UINT type = IMAGE_ICON
+   138 000000BE BA057F0000              mov dword edx, 32517 ; 2nd: LPCSTR name = OIC_WINLOGO
+   139 000000C3 B900000000              mov dword ecx, 0 ; 1st: HINSTANCE hInst
+   140 000000C8 E8(00000000)                call LoadImageA
+   141 000000CD 48890425[49010000]      mov qword [CreateWindow__icon], rax ; return HANDLE
+   142 000000D5 4883C438                add rsp, 56 ; deallocate shadow space
+   143 000000D9 E84D070000              call near GetLastError__epilogue_check
+   144                                  
+   145 000000DE E835070000              call near GetLastError__prologue_reset
+   146                                  ; MS __fastcall x64 ABI
+   147 000000E3 4883EC38                sub rsp, 56 ; allocate shadow space
+   148 000000E7 C744242840800000        mov dword [rsp + 40], 0x8040 ; 6th: UINT fuLoad = LR_SHARED | LR_DEFAULTSIZE
+   149 000000EF C744242000000000        mov dword [rsp + 32], 0 ; 5th: int cy
+   150 000000F7 41B900000000            mov dword r9d, 0 ; 4th: int cx
+   151 000000FD 41B802000000            mov dword r8d, 2 ; 3rd: UINT type = IMAGE_CURSOR
+   152 00000103 BA007F0000              mov dword edx, 32512 ; 2nd: LPCSTR name = IDC_ARROW
+   153 00000108 B900000000              mov dword ecx, 0 ; 1st: HINSTANCE hInst
+   154 0000010D E8(00000000)                call LoadImageA
+   155 00000112 48890425[51010000]      mov qword [CreateWindow__cursor], rax ; return HANDLE
+   156 0000011A 4883C438                add rsp, 56 ; deallocate shadow space
+   157 0000011E E808070000              call near GetLastError__epilogue_check
+   158                                  
+   159 00000123 E8F0060000              call near GetLastError__prologue_reset
+   160                                  ; MS __fastcall x64 ABI
+   161 00000128 4883EC28                sub rsp, 40 ; allocate shadow space
+   162 0000012C 48B9-                   mov qword rcx, MainWindow_1 ; 1st: WNDCLASSEXA *Arg1
+   162 0000012E [5901000000000000] 
+   163 00000136 E8(00000000)                call RegisterClassExA
+   164 0000013B 48890425[A9010000]      mov qword [CreateWindow__atom_name], rax ; return 
+   165 00000143 4883C428                add rsp, 40 ; deallocate shadow space
+   166 00000147 E8DF060000              call near GetLastError__epilogue_check
+   167                                  
+   168 0000014C E8C7060000              call near GetLastError__prologue_reset
+   169                                  ; MS __fastcall x64 ABI
+   170 00000151 4883EC68                sub rsp, 104 ; allocate shadow space
+   171 00000155 48C744245800000000      mov qword [rsp + 88], 0 ; 12th: LPVOID lpParam
+   172 0000015E 48C7442450-             mov qword [rsp + 80], GetModuleHandleA__hModule ; 11th: HINSTANCE hInstance
+   172 00000163 [41010000]         
+   173 00000167 48C744244800000000      mov qword [rsp + 72], 0 ; 10th: HMENU hMenu
+   174 00000170 48C744244000000000      mov qword [rsp + 64], 0 ; 9th: HWND hWndParent
+   175 00000179 C7442438E0010000        mov dword [rsp + 56], 480 ; 8th: int nHeight
+   176 00000181 C744243080020000        mov dword [rsp + 48], 640 ; 7th: int nWidth
+   177 00000189 C744242800000080        mov dword [rsp + 40], 0x80000000 ; 6th: int Y
+   178 00000191 C744242000000080        mov dword [rsp + 32], 0x80000000 ; 5th: int X
+   179 00000199 41B90000CF16            mov qword r9, 0x16cf0000 ; 4th: DWORD dwStyle = WS_OVERLAPPEDWINDOW | WS_VISIBLE | WS_CLIPCHILDREN | WS_CLIPSIBLINGS
+   180 0000019F 49B8-                   mov qword r8, CreateWindow__title ; 3rd: LPCSTR lpWindowName
+   180 000001A1 [B901000000000000] 
+   181 000001A9 48BA-                   mov qword rdx, Generic__uuid ; 2nd: LPCSTR lpClassName
+   181 000001AB [1401000000000000] 
+   182 000001B3 B900030000              mov qword rcx, 768 ; 1st: DWORD dwExStyle = WS_EX_OVERLAPPEDWINDOW
+   183 000001B8 E8(00000000)                call CreateWindowExA
+   184 000001BD 48890425[B1010000]      mov qword [CreateWindow__hWnd], rax ; return HWND
+   185 000001C5 4883C468                add rsp, 104 ; deallocate shadow space
+   186 000001C9 E85D060000              call near GetLastError__epilogue_check
+   187                                  
+   188                                  Loop:
+   189 000001CE E845060000              call near GetLastError__prologue_reset
+   190                                  ; MS __fastcall x64 ABI
+   191 000001D3 4883EC30                sub rsp, 48 ; allocate shadow space
+   192 000001D7 C744242001000000        mov dword [rsp + 32], 1 ; 5th: UINT wRemoveMsg = PM_REMOVE
+   193 000001DF 41B900000000            mov dword r9d, 0 ; 4th: UINT wMsgFilterMax
+   194 000001E5 41B800000000            mov dword r8d, 0 ; 3rd: UINT wMsgFilterMin
+   195 000001EB 488B1425[B1010000]      mov qword rdx, [CreateWindow__hWnd] ; 2nd: HWND hWnd
+   196 000001F3 48B9-                   mov qword rcx, IncomingMessage_1 ; 1st: LPMSG lpMsg
+   196 000001F5 [C501000000000000] 
+   197 000001FD E8(00000000)                call PeekMessageA
+   198 00000202 890425[F1010000]        mov dword [PeekMessage_hasMsgs], eax ; return BOOL
+   199 00000209 4883C430                add rsp, 48 ; deallocate shadow space
+   200 0000020D E819060000              call near GetLastError__epilogue_check
+   201                                  
+   202 00000212 833C25[F1010000]00      cmp dword [PeekMessage_hasMsgs], 0 ; zero messages
+   203 0000021A 0F84AEFFFFFF            je near Loop
+   204                                  ; MS __fastcall x64 ABI
+   205 00000220 4883EC40                sub rsp, 64 ; allocate shadow space
+   206 00000224 48C7442430-             mov qword [rsp + 48], CreateWindow__hWnd ; 7th: va_list *Arguments
+   206 00000229 [B1010000]         
+   207 0000022D 48C744242800010000      mov qword [rsp + 40], 256 ; 6th: DWORD nSize
+   208 00000236 48C7442420-             mov qword [rsp + 32], FormatMessage__tmpReturnBuffer ; 5th: LPSTR lpBuffer
+   208 0000023B [0C000000]         
+   209 0000023F 41B900000000            mov dword r9d, 0x0 ; 4th: DWORD dwLanguageId
+   210 00000245 41B800000000            mov dword r8d, 0 ; 3rd: DWORD dwMessageId
+   211 0000024B BA[F5010000]            mov dword edx, debug_trace_4 ; 2nd: LPCVOID lpSource
+   212 00000250 B900240000              mov dword ecx, 0x2400 ; 1st: DWORD dwFlags
+   213 00000255 E8(00000000)                call FormatMessageA
+   214 0000025A 890425[0C010000]        mov dword [FormatMessage__tmpReturnBufferLength], eax ; return DWORD TCHARs written
+   215 00000261 4883C440                add rsp, 64 ; deallocate shadow space
+   216                                  
+   217                                  ; MS __fastcall x64 ABI
+   218 00000265 4883EC30                sub rsp, 48 ; allocate shadow space
+   219 00000269 C744242000000000        mov dword [rsp + 32], 0 ; 5th: LPOVERLAPPED lpOverlapped
+   220 00000271 41B9[10010000]          mov dword r9d, Console__bytesWritten ; 4th: LPDWORD lpNumberOfBytesWritten
+   221 00000277 448B0425[0C010000]      mov dword r8d, [FormatMessage__tmpReturnBufferLength] ; 3rd: DWORD nNumberOfBytesToWrite
+   222 0000027F BA[0C000000]            mov dword edx, FormatMessage__tmpReturnBuffer ; 2nd: LPCVOID lpBuffer
+   223 00000284 8B0C25[08000000]        mov dword ecx, [Console__stdout_nStdHandle] ; 1st: HANDLE hFile
+   224 0000028B E8(00000000)                call WriteFile
+   225 00000290 4883C430                add rsp, 48 ; deallocate shadow space
+   226                                  
+   227 00000294 488B0425[C5010000]      mov qword rax, [IncomingMessage_1.hwnd]
+   228 0000029C 48890425[32020000]      mov qword [__trace_array + 0], rax
+   229 000002A4 8B0425[CD010000]        mov dword eax, [IncomingMessage_1.message]
+   230 000002AB 890425[3A020000]        mov dword [__trace_array + 8], eax
+   231 000002B2 488B0425[D1010000]      mov qword rax, [IncomingMessage_1.wParam]
+   232 000002BA 48890425[42020000]      mov qword [__trace_array + 16], rax
+   233 000002C2 488B0425[D9010000]      mov qword rax, [IncomingMessage_1.lParam]
+   234 000002CA 48890425[4A020000]      mov qword [__trace_array + 24], rax
+   235 000002D2 8B0425[E5010000]        mov dword eax, [IncomingMessage_1.pt.x]
+   236 000002D9 890425[52020000]        mov dword [__trace_array + 32], eax
+   237 000002E0 8B0425[E9010000]        mov dword eax, [IncomingMessage_1.pt.y]
+   238 000002E7 890425[5A020000]        mov dword [__trace_array + 40], eax
+   239 000002EE 8B0425[ED010000]        mov dword eax, [IncomingMessage_1.lPrivate]
+   240 000002F5 890425[62020000]        mov dword [__trace_array + 48], eax
+   241                                  ; MS __fastcall x64 ABI
+   242 000002FC 4883EC40                sub rsp, 64 ; allocate shadow space
+   243 00000300 48C7442430-             mov qword [rsp + 48], __trace_array ; 7th: va_list *Arguments
+   243 00000305 [32020000]         
+   244 00000309 48C744242800010000      mov qword [rsp + 40], 256 ; 6th: DWORD nSize
+   245 00000312 48C7442420-             mov qword [rsp + 32], FormatMessage__tmpReturnBuffer ; 5th: LPSTR lpBuffer
+   245 00000317 [0C000000]         
+   246 0000031B 41B900000000            mov dword r9d, 0x0 ; 4th: DWORD dwLanguageId
+   247 00000321 41B800000000            mov dword r8d, 0 ; 3rd: DWORD dwMessageId
+   248 00000327 BA[72020000]            mov dword edx, PeekMessage_msgIdFormatString ; 2nd: LPCVOID lpSource
+   249 0000032C B900240000              mov dword ecx, 0x2400 ; 1st: DWORD dwFlags
+   250 00000331 E8(00000000)                call FormatMessageA
+   251 00000336 890425[0C010000]        mov dword [FormatMessage__tmpReturnBufferLength], eax ; return DWORD TCHARs written
+   252 0000033D 4883C440                add rsp, 64 ; deallocate shadow space
+   253                                  
+   254                                  ; MS __fastcall x64 ABI
+   255 00000341 4883EC30                sub rsp, 48 ; allocate shadow space
+   256 00000345 C744242000000000        mov dword [rsp + 32], 0 ; 5th: LPOVERLAPPED lpOverlapped
+   257 0000034D 41B9[10010000]          mov dword r9d, Console__bytesWritten ; 4th: LPDWORD lpNumberOfBytesWritten
+   258 00000353 448B0425[0C010000]      mov dword r8d, [FormatMessage__tmpReturnBufferLength] ; 3rd: DWORD nNumberOfBytesToWrite
+   259 0000035B BA[0C000000]            mov dword edx, FormatMessage__tmpReturnBuffer ; 2nd: LPCVOID lpBuffer
+   260 00000360 8B0C25[08000000]        mov dword ecx, [Console__stdout_nStdHandle] ; 1st: HANDLE hFile
+   261 00000367 E8(00000000)                call WriteFile
+   262 0000036C 4883C430                add rsp, 48 ; deallocate shadow space
+   263                                  
+   264 00000370 833C25[CD010000]12      cmp dword [IncomingMessage_1.message], 0x12 ; WM_QUIT
+   265 00000378 0F857A000000            jne near ..@Loop__processMessage
+   266                                  ; MS __fastcall x64 ABI
+   267 0000037E 4883EC40                sub rsp, 64 ; allocate shadow space
+   268 00000382 48C744243000000000      mov qword [rsp + 48], 0 ; 7th: va_list *Arguments
+   269 0000038B 48C744242800010000      mov qword [rsp + 40], 256 ; 6th: DWORD nSize
+   270 00000394 48C7442420-             mov qword [rsp + 32], FormatMessage__tmpReturnBuffer ; 5th: LPSTR lpBuffer
+   270 00000399 [0C000000]         
+   271 0000039D 41B900000000            mov dword r9d, 0x0 ; 4th: DWORD dwLanguageId
+   272 000003A3 41B800000000            mov dword r8d, 0 ; 3rd: DWORD dwMessageId
+   273 000003A9 BA[1F030000]            mov dword edx, debug_trace_1 ; 2nd: LPCVOID lpSource
+   274 000003AE B900240000              mov dword ecx, 0x2400 ; 1st: DWORD dwFlags
+   275 000003B3 E8(00000000)                call FormatMessageA
+   276 000003B8 890425[0C010000]        mov dword [FormatMessage__tmpReturnBufferLength], eax ; return DWORD TCHARs written
+   277 000003BF 4883C440                add rsp, 64 ; deallocate shadow space
+   278                                  
+   279                                  ; MS __fastcall x64 ABI
+   280 000003C3 4883EC30                sub rsp, 48 ; allocate shadow space
+   281 000003C7 C744242000000000        mov dword [rsp + 32], 0 ; 5th: LPOVERLAPPED lpOverlapped
+   282 000003CF 41B9[10010000]          mov dword r9d, Console__bytesWritten ; 4th: LPDWORD lpNumberOfBytesWritten
+   283 000003D5 448B0425[0C010000]      mov dword r8d, [FormatMessage__tmpReturnBufferLength] ; 3rd: DWORD nNumberOfBytesToWrite
+   284 000003DD BA[0C000000]            mov dword edx, FormatMessage__tmpReturnBuffer ; 2nd: LPCVOID lpBuffer
+   285 000003E2 8B0C25[08000000]        mov dword ecx, [Console__stdout_nStdHandle] ; 1st: HANDLE hFile
+   286 000003E9 E8(00000000)                call WriteFile
+   287 000003EE 4883C430                add rsp, 48 ; deallocate shadow space
+   288                                  
+   289 000003F2 0F84D6FDFFFF            je near Loop
+   290                                  ..@Loop__processMessage:
+   291                                  ; MS __fastcall x64 ABI
+   292 000003F8 4883EC40                sub rsp, 64 ; allocate shadow space
+   293 000003FC 48C744243000000000      mov qword [rsp + 48], 0 ; 7th: va_list *Arguments
+   294 00000405 48C744242800010000      mov qword [rsp + 40], 256 ; 6th: DWORD nSize
+   295 0000040E 48C7442420-             mov qword [rsp + 32], FormatMessage__tmpReturnBuffer ; 5th: LPSTR lpBuffer
+   295 00000413 [0C000000]         
+   296 00000417 41B900000000            mov dword r9d, 0x0 ; 4th: DWORD dwLanguageId
+   297 0000041D 41B800000000            mov dword r8d, 0 ; 3rd: DWORD dwMessageId
+   298 00000423 BA[3F030000]            mov dword edx, debug_trace_5 ; 2nd: LPCVOID lpSource
+   299 00000428 B900240000              mov dword ecx, 0x2400 ; 1st: DWORD dwFlags
+   300 0000042D E8(00000000)                call FormatMessageA
+   301 00000432 890425[0C010000]        mov dword [FormatMessage__tmpReturnBufferLength], eax ; return DWORD TCHARs written
+   302 00000439 4883C440                add rsp, 64 ; deallocate shadow space
+   303                                  
+   304                                  ; MS __fastcall x64 ABI
+   305 0000043D 4883EC30                sub rsp, 48 ; allocate shadow space
+   306 00000441 C744242000000000        mov dword [rsp + 32], 0 ; 5th: LPOVERLAPPED lpOverlapped
+   307 00000449 41B9[10010000]          mov dword r9d, Console__bytesWritten ; 4th: LPDWORD lpNumberOfBytesWritten
+   308 0000044F 448B0425[0C010000]      mov dword r8d, [FormatMessage__tmpReturnBufferLength] ; 3rd: DWORD nNumberOfBytesToWrite
+   309 00000457 BA[0C000000]            mov dword edx, FormatMessage__tmpReturnBuffer ; 2nd: LPCVOID lpBuffer
+   310 0000045C 8B0C25[08000000]        mov dword ecx, [Console__stdout_nStdHandle] ; 1st: HANDLE hFile
+   311 00000463 E8(00000000)                call WriteFile
+   312 00000468 4883C430                add rsp, 48 ; deallocate shadow space
+   313                                  
+   314 0000046C E8A7030000              call near GetLastError__prologue_reset
+   315                                  ; MS __fastcall x64 ABI
+   316 00000471 4883EC28                sub rsp, 40 ; allocate shadow space
+   317 00000475 48B9-                   mov qword rcx, IncomingMessage_1 ; 1st: LPMSG lpMsg
+   317 00000477 [C501000000000000] 
+   318 0000047F E8(00000000)                call TranslateMessage
+   319 00000484 4883C428                add rsp, 40 ; deallocate shadow space
+   320 00000488 E89E030000              call near GetLastError__epilogue_check
+   321                                  
+   322                                  ; MS __fastcall x64 ABI
+   323 0000048D 4883EC40                sub rsp, 64 ; allocate shadow space
+   324 00000491 48C744243000000000      mov qword [rsp + 48], 0 ; 7th: va_list *Arguments
+   325 0000049A 48C744242800010000      mov qword [rsp + 40], 256 ; 6th: DWORD nSize
+   326 000004A3 48C7442420-             mov qword [rsp + 32], FormatMessage__tmpReturnBuffer ; 5th: LPSTR lpBuffer
+   326 000004A8 [0C000000]         
+   327 000004AC 41B900000000            mov dword r9d, 0x0 ; 4th: DWORD dwLanguageId
+   328 000004B2 41B800000000            mov dword r8d, 0 ; 3rd: DWORD dwMessageId
+   329 000004B8 BA[51030000]            mov dword edx, debug_trace_5a ; 2nd: LPCVOID lpSource
+   330 000004BD B900240000              mov dword ecx, 0x2400 ; 1st: DWORD dwFlags
+   331 000004C2 E8(00000000)                call FormatMessageA
+   332 000004C7 890425[0C010000]        mov dword [FormatMessage__tmpReturnBufferLength], eax ; return DWORD TCHARs written
+   333 000004CE 4883C440                add rsp, 64 ; deallocate shadow space
+   334                                  
+   335                                  ; MS __fastcall x64 ABI
+   336 000004D2 4883EC30                sub rsp, 48 ; allocate shadow space
+   337 000004D6 C744242000000000        mov dword [rsp + 32], 0 ; 5th: LPOVERLAPPED lpOverlapped
+   338 000004DE 41B9[10010000]          mov dword r9d, Console__bytesWritten ; 4th: LPDWORD lpNumberOfBytesWritten
+   339 000004E4 448B0425[0C010000]      mov dword r8d, [FormatMessage__tmpReturnBufferLength] ; 3rd: DWORD nNumberOfBytesToWrite
+   340 000004EC BA[0C000000]            mov dword edx, FormatMessage__tmpReturnBuffer ; 2nd: LPCVOID lpBuffer
+   341 000004F1 8B0C25[08000000]        mov dword ecx, [Console__stdout_nStdHandle] ; 1st: HANDLE hFile
+   342 000004F8 E8(00000000)                call WriteFile
+   343 000004FD 4883C430                add rsp, 48 ; deallocate shadow space
+   344                                  
+   345 00000501 E812030000              call near GetLastError__prologue_reset
    346                                  ; MS __fastcall x64 ABI
-   347 000004F6 4883EC30                sub rsp, 48 ; allocate shadow space
-   348 000004FA C744242000000000        mov dword [rsp + 32], 0 ; 5th: LPOVERLAPPED lpOverlapped
-   349 00000502 41B9[10010000]          mov dword r9d, Console__bytesWritten ; 4th: LPDWORD lpNumberOfBytesWritten
-   350 00000508 448B0425[0C010000]      mov dword r8d, [FormatMessage__tmpReturnBufferLength] ; 3rd: DWORD nNumberOfBytesToWrite
-   351 00000510 BA[0C000000]            mov dword edx, FormatMessage__tmpReturnBuffer ; 2nd: LPCVOID lpBuffer
-   352 00000515 8B0C25[08000000]        mov dword ecx, [Console__stdout_nStdHandle] ; 1st: HANDLE hFile
-   353 0000051C E8(00000000)                call WriteFile
-   354 00000521 4883C430                add rsp, 48 ; deallocate shadow space
-   355                                  
-   356 00000525 31C0                    xor eax, eax
-   357 00000527 C3                      ret
-   358                                  WndProc__WM_Close:
-   359                                  ; MS __fastcall x64 ABI
-   360 00000528 4883EC40                sub rsp, 64 ; allocate shadow space
-   361 0000052C 48C744243000000000      mov qword [rsp + 48], 0 ; 7th: va_list *Arguments
-   362 00000535 48C744242800010000      mov qword [rsp + 40], 256 ; 6th: DWORD nSize
-   363 0000053E 48C7442420-             mov qword [rsp + 32], FormatMessage__tmpReturnBuffer ; 5th: LPSTR lpBuffer
-   363 00000543 [0C000000]         
-   364 00000547 41B900000000            mov dword r9d, 0x0 ; 4th: DWORD dwLanguageId
-   365 0000054D 41B800000000            mov dword r8d, 0 ; 3rd: DWORD dwMessageId
-   366 00000553 BA[51030000]            mov dword edx, debug_trace_2 ; 2nd: LPCVOID lpSource
-   367 00000558 B900240000              mov dword ecx, 0x2400 ; 1st: DWORD dwFlags
-   368 0000055D E8(00000000)                call FormatMessageA
-   369 00000562 890425[0C010000]        mov dword [FormatMessage__tmpReturnBufferLength], eax ; return DWORD TCHARs written
-   370 00000569 4883C440                add rsp, 64 ; deallocate shadow space
-   371                                  
-   372                                  ; MS __fastcall x64 ABI
-   373 0000056D 4883EC30                sub rsp, 48 ; allocate shadow space
-   374 00000571 C744242000000000        mov dword [rsp + 32], 0 ; 5th: LPOVERLAPPED lpOverlapped
-   375 00000579 41B9[10010000]          mov dword r9d, Console__bytesWritten ; 4th: LPDWORD lpNumberOfBytesWritten
-   376 0000057F 448B0425[0C010000]      mov dword r8d, [FormatMessage__tmpReturnBufferLength] ; 3rd: DWORD nNumberOfBytesToWrite
-   377 00000587 BA[0C000000]            mov dword edx, FormatMessage__tmpReturnBuffer ; 2nd: LPCVOID lpBuffer
-   378 0000058C 8B0C25[08000000]        mov dword ecx, [Console__stdout_nStdHandle] ; 1st: HANDLE hFile
-   379 00000593 E8(00000000)                call WriteFile
-   380 00000598 4883C430                add rsp, 48 ; deallocate shadow space
-   381                                  
-   382 0000059C E823000000              call near GetLastError__prologue_reset
-   383                                  ; MS __fastcall x64 ABI
-   384 000005A1 4883EC28                sub rsp, 40 ; allocate shadow space
-   385 000005A5 B900000000              mov dword ecx, 0 ; 1st: int nExitCode
-   386 000005AA E8(00000000)                call PostQuitMessage
-   387 000005AF 4883C428                add rsp, 40 ; deallocate shadow space
-   388 000005B3 E81F000000              call near GetLastError__epilogue_check
-   389                                  
-   390 000005B8 31C0                    xor eax, eax
-   391 000005BA C3                      ret
-   392                                  WndProc__WM_KeyDown:
-   393 000005BB 31C0                    xor eax, eax
-   394 000005BD C3                      ret
-   395                                  WndProc__WM_KeyUp:
-   396 000005BE 31C0                    xor eax, eax
-   397 000005C0 C3                      ret
-   398                                  WndProc__WM_Size:
-   399 000005C1 31C0                    xor eax, eax
-   400 000005C3 C3                      ret
-   401                                  
-   402                                  GetLastError__prologue_reset:
-   403                                  ; MS __fastcall x64 ABI
-   404 000005C4 4883EC28                sub rsp, 40 ; allocate shadow space
-   405 000005C8 B900000000              mov dword ecx, 0 ; 1st: DWORD dwErrCode
-   406 000005CD E8(00000000)                call SetLastError
-   407 000005D2 4883C428                add rsp, 40 ; deallocate shadow space
-   408 000005D6 C3                      ret
-   409                                  
-   410                                  GetLastError__epilogue_check:
-   411                                  ; MS __fastcall x64 ABI
-   412 000005D7 4883EC28                sub rsp, 40 ; allocate shadow space
-   413 000005DB E8(00000000)                call GetLastError
-   414 000005E0 890425[00000000]        mov dword [GetLastError__errCode], eax ; return 
-   415 000005E7 4883C428                add rsp, 40 ; deallocate shadow space
-   416 000005EB 4883F800                cmp rax, 0
-   417 000005EF 7501                    jne ..@error
-   418 000005F1 C3                      ret
-   419                                  
-   420                                  ..@error:
-   421                                  ; MS __fastcall x64 ABI
-   422 000005F2 4883EC40                sub rsp, 64 ; allocate shadow space
-   423 000005F6 48C744243000000000      mov qword [rsp + 48], 0 ; 7th: va_list *Arguments
-   424 000005FF 48C744242800010000      mov qword [rsp + 40], 256 ; 6th: DWORD nSize
-   425 00000608 48C7442420-             mov qword [rsp + 32], FormatMessage__tmpReturnBuffer ; 5th: LPSTR lpBuffer
-   425 0000060D [0C000000]         
-   426 00000611 41B900040000            mov dword r9d, 0x400 ; 4th: DWORD dwLanguageId
-   427 00000617 448B0425[00000000]      mov dword r8d, [GetLastError__errCode] ; 3rd: DWORD dwMessageId
-   428 0000061F BA00000000              mov dword edx, 0 ; 2nd: LPCVOID lpSource
-   429 00000624 B900120000              mov dword ecx, 0x1200 ; 1st: DWORD dwFlags
-   430 00000629 E8(00000000)                call FormatMessageA
-   431 0000062E 890425[0C010000]        mov dword [FormatMessage__tmpReturnBufferLength], eax ; return DWORD TCHARs written
-   432 00000635 4883C440                add rsp, 64 ; deallocate shadow space
-   433                                  
-   434                                  ; MS __fastcall x64 ABI
-   435 00000639 4883EC30                sub rsp, 48 ; allocate shadow space
-   436 0000063D C744242000000000        mov dword [rsp + 32], 0 ; 5th: LPOVERLAPPED lpOverlapped
-   437 00000645 41B9[10010000]          mov dword r9d, Console__bytesWritten ; 4th: LPDWORD lpNumberOfBytesWritten
-   438 0000064B 448B0425[0C010000]      mov dword r8d, [FormatMessage__tmpReturnBufferLength] ; 3rd: DWORD nNumberOfBytesToWrite
-   439 00000653 BA[0C000000]            mov dword edx, FormatMessage__tmpReturnBuffer ; 2nd: LPCVOID lpBuffer
-   440 00000658 8B0C25[08000000]        mov dword ecx, [Console__stdout_nStdHandle] ; 1st: HANDLE hFile
-   441 0000065F E8(00000000)                call WriteFile
-   442 00000664 4883C430                add rsp, 48 ; deallocate shadow space
-   443                                  
-   444 00000668 8B0C25[00000000]        mov ecx, [GetLastError__errCode] ; UINT uExitCode
-   445 0000066F E900000000              jmp near Exit
-   446                                  
-   447                                  Exit:
-   448                                  ; MS __fastcall x64 ABI
-   449 00000674 4883EC28                sub rsp, 40 ; allocate shadow space
-   450 00000678 E8(00000000)                call ExitProcess
-   451 0000067D 4883C428                add rsp, 40 ; deallocate shadow space
-   452                                  
-   453                                  
+   347 00000506 4883EC28                sub rsp, 40 ; allocate shadow space
+   348 0000050A 48B9-                   mov qword rcx, IncomingMessage_1 ; 1st: LPMSG lpMsg
+   348 0000050C [C501000000000000] 
+   349 00000514 E8(00000000)                call DispatchMessageA
+   350 00000519 4883C428                add rsp, 40 ; deallocate shadow space
+   351 0000051D E809030000              call near GetLastError__epilogue_check
+   352                                  
+   353 00000522 E9A7FCFFFF              jmp near Loop
+   354                                  
+   355                                  WndProc:
+   356 00000527 48890C25[63030000]      mov qword [nWndProc__hWnd], rcx
+   357 0000052F 48891425[6B030000]      mov qword [nWndProc__uMsg], rdx
+   358 00000537 4C890425[73030000]      mov qword [nWndProc__wParam], r8
+   359 0000053F 4C890C25[7B030000]      mov qword [nWndProc__lParam], r9
+   360 00000547 4883FA06                cmp rdx, 0x6
+   361 0000054B 0F8483000000            je near WndProc__WM_Activate
+   362 00000551 4881FA12010000          cmp rdx, 0x112
+   363 00000558 0F8479000000            je near WndProc__WM_SysCommand
+   364 0000055E 4883FA10                cmp rdx, 0x10
+   365 00000562 0F8496000000            je near WndProc__WM_Close
+   366 00000568 4881FA00010000          cmp rdx, 0x100
+   367 0000056F 0F849A020000            je near WndProc__WM_KeyDown
+   368 00000575 4881FA01010000          cmp rdx, 0x101
+   369 0000057C 0F8490020000            je near WndProc__WM_KeyUp
+   370 00000582 4883FA05                cmp rdx, 0x5
+   371 00000586 0F8489020000            je near WndProc__WM_Size
+   372                                  ..@WndProc__default:
+   373 0000058C E887020000              call near GetLastError__prologue_reset
+   374                                  ; MS __fastcall x64 ABI
+   375 00000591 4883EC28                sub rsp, 40 ; allocate shadow space
+   376 00000595 4C8B0C25[7B030000]      mov qword r9, [nWndProc__lParam] ; 4th: 
+   377 0000059D 4C8B0425[73030000]      mov qword r8, [nWndProc__wParam] ; 3rd: 
+   378 000005A5 488B1425[6B030000]      mov qword rdx, [nWndProc__uMsg] ; 2nd: 
+   379 000005AD 488B0C25[63030000]      mov qword rcx, [nWndProc__hWnd] ; 1st: 
+   380 000005B5 E8(00000000)                call DefWindowProcA
+   381 000005BA 48890425[83030000]      mov qword [nWndProc__return], rax ; return 
+   382 000005C2 4883C428                add rsp, 40 ; deallocate shadow space
+   383 000005C6 E860020000              call near GetLastError__epilogue_check
+   384                                  
+   385 000005CB 488B0425[83030000]      mov qword rax, [nWndProc__return]
+   386 000005D3 C3                      ret
+   387                                  WndProc__WM_Activate:
+   388 000005D4 31C0                    xor eax, eax
+   389 000005D6 C3                      ret
+   390                                  WndProc__WM_SysCommand:
+   391 000005D7 8B1C25[73030000]        mov ebx, [nWndProc__wParam]
+   392 000005DE 81FB40F10000            cmp ebx, 0xf140
+   393 000005E4 0F8411000000            je near ..@return_zero
+   394 000005EA 81FB70F10000            cmp ebx, 0xf170
+   395 000005F0 0F8405000000            je near ..@return_zero
+   396 000005F6 E991FFFFFF              jmp near ..@WndProc__default
+   397                                  ..@return_zero:
+   398 000005FB 31C0                    xor eax, eax
+   399 000005FD C3                      ret
+   400                                  WndProc__WM_Close:
+   401                                  ; MS __fastcall x64 ABI
+   402 000005FE 4883EC40                sub rsp, 64 ; allocate shadow space
+   403 00000602 48C744243000000000      mov qword [rsp + 48], 0 ; 7th: va_list *Arguments
+   404 0000060B 48C744242800010000      mov qword [rsp + 40], 256 ; 6th: DWORD nSize
+   405 00000614 48C7442420-             mov qword [rsp + 32], FormatMessage__tmpReturnBuffer ; 5th: LPSTR lpBuffer
+   405 00000619 [0C000000]         
+   406 0000061D 41B900000000            mov dword r9d, 0x0 ; 4th: DWORD dwLanguageId
+   407 00000623 41B800000000            mov dword r8d, 0 ; 3rd: DWORD dwMessageId
+   408 00000629 BA[8B030000]            mov dword edx, debug_trace_2 ; 2nd: LPCVOID lpSource
+   409 0000062E B900240000              mov dword ecx, 0x2400 ; 1st: DWORD dwFlags
+   410 00000633 E8(00000000)                call FormatMessageA
+   411 00000638 890425[0C010000]        mov dword [FormatMessage__tmpReturnBufferLength], eax ; return DWORD TCHARs written
+   412 0000063F 4883C440                add rsp, 64 ; deallocate shadow space
+   413                                  
+   414                                  ; MS __fastcall x64 ABI
+   415 00000643 4883EC30                sub rsp, 48 ; allocate shadow space
+   416 00000647 C744242000000000        mov dword [rsp + 32], 0 ; 5th: LPOVERLAPPED lpOverlapped
+   417 0000064F 41B9[10010000]          mov dword r9d, Console__bytesWritten ; 4th: LPDWORD lpNumberOfBytesWritten
+   418 00000655 448B0425[0C010000]      mov dword r8d, [FormatMessage__tmpReturnBufferLength] ; 3rd: DWORD nNumberOfBytesToWrite
+   419 0000065D BA[0C000000]            mov dword edx, FormatMessage__tmpReturnBuffer ; 2nd: LPCVOID lpBuffer
+   420 00000662 8B0C25[08000000]        mov dword ecx, [Console__stdout_nStdHandle] ; 1st: HANDLE hFile
+   421 00000669 E8(00000000)                call WriteFile
+   422 0000066E 4883C430                add rsp, 48 ; deallocate shadow space
+   423                                  
+   424 00000672 E8A1010000              call near GetLastError__prologue_reset
+   425                                  ; MS __fastcall x64 ABI
+   426 00000677 4883EC28                sub rsp, 40 ; allocate shadow space
+   427 0000067B 488B0C25[B1010000]      mov qword rcx, [CreateWindow__hWnd] ; 1st: HWND hWnd
+   428 00000683 E8(00000000)                call DestroyWindow
+   429 00000688 4883C428                add rsp, 40 ; deallocate shadow space
+   430 0000068C E89A010000              call near GetLastError__epilogue_check
+   431                                  
+   432                                  ; MS __fastcall x64 ABI
+   433 00000691 4883EC40                sub rsp, 64 ; allocate shadow space
+   434 00000695 48C744243000000000      mov qword [rsp + 48], 0 ; 7th: va_list *Arguments
+   435 0000069E 48C744242800010000      mov qword [rsp + 40], 256 ; 6th: DWORD nSize
+   436 000006A7 48C7442420-             mov qword [rsp + 32], FormatMessage__tmpReturnBuffer ; 5th: LPSTR lpBuffer
+   436 000006AC [0C000000]         
+   437 000006B0 41B900000000            mov dword r9d, 0x0 ; 4th: DWORD dwLanguageId
+   438 000006B6 41B800000000            mov dword r8d, 0 ; 3rd: DWORD dwMessageId
+   439 000006BC BA[AA030000]            mov dword edx, debug_trace_7 ; 2nd: LPCVOID lpSource
+   440 000006C1 B900240000              mov dword ecx, 0x2400 ; 1st: DWORD dwFlags
+   441 000006C6 E8(00000000)                call FormatMessageA
+   442 000006CB 890425[0C010000]        mov dword [FormatMessage__tmpReturnBufferLength], eax ; return DWORD TCHARs written
+   443 000006D2 4883C440                add rsp, 64 ; deallocate shadow space
+   444                                  
+   445                                  ; MS __fastcall x64 ABI
+   446 000006D6 4883EC30                sub rsp, 48 ; allocate shadow space
+   447 000006DA C744242000000000        mov dword [rsp + 32], 0 ; 5th: LPOVERLAPPED lpOverlapped
+   448 000006E2 41B9[10010000]          mov dword r9d, Console__bytesWritten ; 4th: LPDWORD lpNumberOfBytesWritten
+   449 000006E8 448B0425[0C010000]      mov dword r8d, [FormatMessage__tmpReturnBufferLength] ; 3rd: DWORD nNumberOfBytesToWrite
+   450 000006F0 BA[0C000000]            mov dword edx, FormatMessage__tmpReturnBuffer ; 2nd: LPCVOID lpBuffer
+   451 000006F5 8B0C25[08000000]        mov dword ecx, [Console__stdout_nStdHandle] ; 1st: HANDLE hFile
+   452 000006FC E8(00000000)                call WriteFile
+   453 00000701 4883C430                add rsp, 48 ; deallocate shadow space
+   454                                  
+   455 00000705 31C0                    xor eax, eax
+   456 00000707 C3                      ret
+   457                                  WndProc__WM_Destroy:
+   458                                  ; MS __fastcall x64 ABI
+   459 00000708 4883EC40                sub rsp, 64 ; allocate shadow space
+   460 0000070C 48C744243000000000      mov qword [rsp + 48], 0 ; 7th: va_list *Arguments
+   461 00000715 48C744242800010000      mov qword [rsp + 40], 256 ; 6th: DWORD nSize
+   462 0000071E 48C7442420-             mov qword [rsp + 32], FormatMessage__tmpReturnBuffer ; 5th: LPSTR lpBuffer
+   462 00000723 [0C000000]         
+   463 00000727 41B900000000            mov dword r9d, 0x0 ; 4th: DWORD dwLanguageId
+   464 0000072D 41B800000000            mov dword r8d, 0 ; 3rd: DWORD dwMessageId
+   465 00000733 BA[BE030000]            mov dword edx, debug_trace_3 ; 2nd: LPCVOID lpSource
+   466 00000738 B900240000              mov dword ecx, 0x2400 ; 1st: DWORD dwFlags
+   467 0000073D E8(00000000)                call FormatMessageA
+   468 00000742 890425[0C010000]        mov dword [FormatMessage__tmpReturnBufferLength], eax ; return DWORD TCHARs written
+   469 00000749 4883C440                add rsp, 64 ; deallocate shadow space
+   470                                  
+   471                                  ; MS __fastcall x64 ABI
+   472 0000074D 4883EC30                sub rsp, 48 ; allocate shadow space
+   473 00000751 C744242000000000        mov dword [rsp + 32], 0 ; 5th: LPOVERLAPPED lpOverlapped
+   474 00000759 41B9[10010000]          mov dword r9d, Console__bytesWritten ; 4th: LPDWORD lpNumberOfBytesWritten
+   475 0000075F 448B0425[0C010000]      mov dword r8d, [FormatMessage__tmpReturnBufferLength] ; 3rd: DWORD nNumberOfBytesToWrite
+   476 00000767 BA[0C000000]            mov dword edx, FormatMessage__tmpReturnBuffer ; 2nd: LPCVOID lpBuffer
+   477 0000076C 8B0C25[08000000]        mov dword ecx, [Console__stdout_nStdHandle] ; 1st: HANDLE hFile
+   478 00000773 E8(00000000)                call WriteFile
+   479 00000778 4883C430                add rsp, 48 ; deallocate shadow space
+   480                                  
+   481 0000077C E897000000              call near GetLastError__prologue_reset
+   482                                  ; MS __fastcall x64 ABI
+   483 00000781 4883EC28                sub rsp, 40 ; allocate shadow space
+   484 00000785 B900000000              mov dword ecx, 0 ; 1st: int nExitCode
+   485 0000078A E8(00000000)                call PostQuitMessage
+   486 0000078F 4883C428                add rsp, 40 ; deallocate shadow space
+   487 00000793 E893000000              call near GetLastError__epilogue_check
+   488                                  
+   489                                  ; MS __fastcall x64 ABI
+   490 00000798 4883EC40                sub rsp, 64 ; allocate shadow space
+   491 0000079C 48C744243000000000      mov qword [rsp + 48], 0 ; 7th: va_list *Arguments
+   492 000007A5 48C744242800010000      mov qword [rsp + 40], 256 ; 6th: DWORD nSize
+   493 000007AE 48C7442420-             mov qword [rsp + 32], FormatMessage__tmpReturnBuffer ; 5th: LPSTR lpBuffer
+   493 000007B3 [0C000000]         
+   494 000007B7 41B900000000            mov dword r9d, 0x0 ; 4th: DWORD dwLanguageId
+   495 000007BD 41B800000000            mov dword r8d, 0 ; 3rd: DWORD dwMessageId
+   496 000007C3 BA[DF030000]            mov dword edx, debug_trace_8 ; 2nd: LPCVOID lpSource
+   497 000007C8 B900240000              mov dword ecx, 0x2400 ; 1st: DWORD dwFlags
+   498 000007CD E8(00000000)                call FormatMessageA
+   499 000007D2 890425[0C010000]        mov dword [FormatMessage__tmpReturnBufferLength], eax ; return DWORD TCHARs written
+   500 000007D9 4883C440                add rsp, 64 ; deallocate shadow space
+   501                                  
+   502                                  ; MS __fastcall x64 ABI
+   503 000007DD 4883EC30                sub rsp, 48 ; allocate shadow space
+   504 000007E1 C744242000000000        mov dword [rsp + 32], 0 ; 5th: LPOVERLAPPED lpOverlapped
+   505 000007E9 41B9[10010000]          mov dword r9d, Console__bytesWritten ; 4th: LPDWORD lpNumberOfBytesWritten
+   506 000007EF 448B0425[0C010000]      mov dword r8d, [FormatMessage__tmpReturnBufferLength] ; 3rd: DWORD nNumberOfBytesToWrite
+   507 000007F7 BA[0C000000]            mov dword edx, FormatMessage__tmpReturnBuffer ; 2nd: LPCVOID lpBuffer
+   508 000007FC 8B0C25[08000000]        mov dword ecx, [Console__stdout_nStdHandle] ; 1st: HANDLE hFile
+   509 00000803 E8(00000000)                call WriteFile
+   510 00000808 4883C430                add rsp, 48 ; deallocate shadow space
+   511                                  
+   512 0000080C 31C0                    xor eax, eax
+   513 0000080E C3                      ret
+   514                                  WndProc__WM_KeyDown:
+   515 0000080F 31C0                    xor eax, eax
+   516 00000811 C3                      ret
+   517                                  WndProc__WM_KeyUp:
+   518 00000812 31C0                    xor eax, eax
+   519 00000814 C3                      ret
+   520                                  WndProc__WM_Size:
+   521 00000815 31C0                    xor eax, eax
+   522 00000817 C3                      ret
+   523                                  
+   524                                  GetLastError__prologue_reset:
+   525                                  ; MS __fastcall x64 ABI
+   526 00000818 4883EC28                sub rsp, 40 ; allocate shadow space
+   527 0000081C B900000000              mov dword ecx, 0 ; 1st: DWORD dwErrCode
+   528 00000821 E8(00000000)                call SetLastError
+   529 00000826 4883C428                add rsp, 40 ; deallocate shadow space
+   530 0000082A C3                      ret
+   531                                  
+   532                                  GetLastError__epilogue_check:
+   533                                  ; MS __fastcall x64 ABI
+   534 0000082B 4883EC28                sub rsp, 40 ; allocate shadow space
+   535 0000082F E8(00000000)                call GetLastError
+   536 00000834 890425[00000000]        mov dword [GetLastError__errCode], eax ; return 
+   537 0000083B 4883C428                add rsp, 40 ; deallocate shadow space
+   538 0000083F 4883F800                cmp rax, 0
+   539 00000843 7501                    jne ..@error
+   540 00000845 C3                      ret
+   541                                  
+   542                                  ..@error:
+   543                                  ; MS __fastcall x64 ABI
+   544 00000846 4883EC40                sub rsp, 64 ; allocate shadow space
+   545 0000084A 48C744243000000000      mov qword [rsp + 48], 0 ; 7th: va_list *Arguments
+   546 00000853 48C744242800010000      mov qword [rsp + 40], 256 ; 6th: DWORD nSize
+   547 0000085C 48C7442420-             mov qword [rsp + 32], FormatMessage__tmpReturnBuffer ; 5th: LPSTR lpBuffer
+   547 00000861 [0C000000]         
+   548 00000865 41B900040000            mov dword r9d, 0x400 ; 4th: DWORD dwLanguageId
+   549 0000086B 448B0425[00000000]      mov dword r8d, [GetLastError__errCode] ; 3rd: DWORD dwMessageId
+   550 00000873 BA00000000              mov dword edx, 0 ; 2nd: LPCVOID lpSource
+   551 00000878 B900120000              mov dword ecx, 0x1200 ; 1st: DWORD dwFlags
+   552 0000087D E8(00000000)                call FormatMessageA
+   553 00000882 890425[0C010000]        mov dword [FormatMessage__tmpReturnBufferLength], eax ; return DWORD TCHARs written
+   554 00000889 4883C440                add rsp, 64 ; deallocate shadow space
+   555                                  
+   556                                  ; MS __fastcall x64 ABI
+   557 0000088D 4883EC30                sub rsp, 48 ; allocate shadow space
+   558 00000891 C744242000000000        mov dword [rsp + 32], 0 ; 5th: LPOVERLAPPED lpOverlapped
+   559 00000899 41B9[10010000]          mov dword r9d, Console__bytesWritten ; 4th: LPDWORD lpNumberOfBytesWritten
+   560 0000089F 448B0425[0C010000]      mov dword r8d, [FormatMessage__tmpReturnBufferLength] ; 3rd: DWORD nNumberOfBytesToWrite
+   561 000008A7 BA[0C000000]            mov dword edx, FormatMessage__tmpReturnBuffer ; 2nd: LPCVOID lpBuffer
+   562 000008AC 8B0C25[08000000]        mov dword ecx, [Console__stdout_nStdHandle] ; 1st: HANDLE hFile
+   563 000008B3 E8(00000000)                call WriteFile
+   564 000008B8 4883C430                add rsp, 48 ; deallocate shadow space
+   565                                  
+   566 000008BC 8B0C25[00000000]        mov ecx, [GetLastError__errCode] ; UINT uExitCode
+   567 000008C3 E900000000              jmp near Exit
+   568                                  
+   569                                  Exit:
+   570                                  ; MS __fastcall x64 ABI
+   571 000008C8 4883EC28                sub rsp, 40 ; allocate shadow space
+   572 000008CC E8(00000000)                call ExitProcess
+   573 000008D1 4883C428                add rsp, 40 ; deallocate shadow space
+   574                                  
+   575                                  
