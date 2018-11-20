@@ -15,7 +15,7 @@ const out = () => {
 	fs.writeFileSync(
 		path.join(__dirname, OUT_FILE||'test.nasm'),
 		_.map(sections, (text, section) =>
-			('preprocessor' !== section ? `section ${section}\n` : '')+
+			('preprocessor' !== section ? `section ${section} align=16\n` : '')+
 			`${text}\n`).join(''));
 };
 const BLOCKS = { INIT: '', PROCS: '' };
@@ -105,6 +105,29 @@ const sizeof = struct => {
 		sum+=n,0);
 };
 
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 const build = () => {
 	section = 'preprocessor';
 	asm('; build window');
@@ -114,12 +137,14 @@ const build = () => {
 	asm('extern RegisterClassExA');
 	asm('extern CreateWindowExA');
 	asm('extern ShowWindow');
+	asm('extern UpdateWindow');
 
-	asm('; main loop');
+	asm('\n; main loop');
 	asm('extern PeekMessageA');
 	asm('extern TranslateMessage');
 	asm('extern DispatchMessageA');
 	asm('extern DefWindowProcA');
+	asm('extern PostQuitMessage');
 	
 	asm(`\n; shutdown/cleanup`);
 	asm('extern LocalFree');
@@ -266,15 +291,21 @@ const build = () => {
 		ret: { value: '[CreateWindow__hwnd]', size: 'qword', comment: 'HWND' },
 	}));
 
-	const SW_SHOWNORMAL = 1;
-	// see: https://docs.microsoft.com/en-us/windows/desktop/api/winuser/nf-winuser-showwindow
-	_var('ShowWindow__successful', 'd');
+	_var('ShowWindow__result', 'd');
 	asm(__ms_64_fastcall_w_error_check({ proc: 'ShowWindow',
-		ret: { value: '[ShowWindow__successful]', size: 'dword', comment: 'BOOL successful' },
 		args: [
 			{ value: '[CreateWindow__hwnd]', size: 'qword', comment: 'HWND hWnd' },
-			{ value: SW_SHOWNORMAL, size: 'dword', comment: 'int nCmdShow' },
-		]
+			{ value: '1', size: 'dword', comment: 'int  nCmdShow' },
+		],
+		ret: { value: '[ShowWindow__result]', size: 'dword', comment: 'BOOL' },
+	}));
+
+	_var('UpdateWindow__result', 'd');
+	asm(__ms_64_fastcall_w_error_check({ proc: 'UpdateWindow',
+		args: [
+			{ value: '[CreateWindow__hwnd]', size: 'qword', comment: 'HWND hWnd' },
+		],
+		ret: { value: '[UpdateWindow__result]', size: 'dword', comment: 'BOOL' },
 	}));
 
 	const IncomingMessage = istruct('IncomingMessage', STRUCTS.tagMSG, {
@@ -288,6 +319,11 @@ const build = () => {
 		lPrivate: 0,
 	});	
 
+	
+	// TODO: remove these after debugging
+	_var('padding: times 4 db 0 ; not sure why padding is needed here but must find out proper alignment');
+	_var('dot', 'b', '"."');
+	
 	asm('Loop:');
 	const PM_REMOVE = 0x0001;
 	_var('PeekMessage_hasMsgs', 'd');
@@ -301,9 +337,16 @@ const build = () => {
 		],
 		ret: { value: '[PeekMessage_hasMsgs]', size: 'dword', comment: 'BOOL' },
 	}));
-	asm('cmp rax, 0');
+	const WM_QUIT = 0x0012;
+	asm('cmp dword [PeekMessage_hasMsgs], 0 ; zero messages');
 	asm('je near Loop');
 
+	asm(`cmp dword [${IncomingMessage}.message], ${hex(WM_QUIT)} ; WM_QUIT`);
+	asm('jne near ..@Loop__processMessage');
+	asm(Asm.Console.log('dot', 1));
+	asm(exit(0));
+
+	asm('..@Loop__processMessage:');
 	asm(__ms_64_fastcall_w_error_check({ proc: 'TranslateMessage',
 		args: [
 			{ value: IncomingMessage, size: 'qword', comment: 'LPMSG lpMsg' },
@@ -317,6 +360,15 @@ const build = () => {
 	}));
 	asm('je near Loop');
 
+	const WM_ACTIVATE = 0x0006;
+	const WM_SYSCOMMAND = 0x0112;
+	const WM_CLOSE = 0x0010;
+	const WM_KEYDOWN = 0x0100;
+	const WM_KEYUP = 0x0101;
+	const WM_SIZE = 0x0005;
+	// see: https://github.com/tpn/winsdk-10/blob/master/Include/10.0.10240.0/um/WinUser.h#L1951
+	const SC_SCREENSAVE = 0x0F140;
+	const SC_MONITORPOWER = 0x0F170;
 	asm('\nWndProc:');
 	_var('nWndProc__hWnd', 'q');
 	_var('nWndProc__uMsg', 'q');
@@ -327,6 +379,24 @@ const build = () => {
 	asm('mov qword [nWndProc__uMsg], rdx');
 	asm('mov qword [nWndProc__wParam], r8');
 	asm('mov qword [nWndProc__lParam], r9');
+	//TODO: print every WindProc msg that gets dispatched during average program cycle
+	//asm(Console.log(nWndProc__uMsg
+	//TODO: can FormatMessageA work like sprintf?
+
+	// switch uMsg
+	asm(`cmp rdx, ${hex(WM_ACTIVATE)}`);
+	asm('je near WndProc__WM_Activate');
+	asm(`cmp rdx, ${hex(WM_SYSCOMMAND)}`);
+	asm('je near WndProc__WM_SysCommand');
+	asm(`cmp rdx, ${hex(WM_CLOSE)}`);
+	asm('je near WndProc__WM_Close');
+	asm(`cmp rdx, ${hex(WM_KEYDOWN)}`);
+	asm('je near WndProc__WM_KeyDown');
+	asm(`cmp rdx, ${hex(WM_KEYUP)}`);
+	asm('je near WndProc__WM_KeyUp');
+	asm(`cmp rdx, ${hex(WM_SIZE)}`);
+	asm('je near WndProc__WM_Size');
+	asm('..@WndProc__default:');
 	asm(__ms_64_fastcall_w_error_check({ proc: 'DefWindowProcA',
 		args: [
 			{ value: '[nWndProc__hWnd]', size: 'qword' },
@@ -339,10 +409,69 @@ const build = () => {
 	asm('mov qword rax, [nWndProc__return]');
 	asm('ret');
 
+	asm('WndProc__WM_Activate:');
+	asm('xor eax, eax');
+	asm('ret');
+	asm('WndProc__WM_SysCommand:');
+	asm('mov ebx, [nWndProc__wParam]');
+	asm(`cmp ebx, ${hex(SC_SCREENSAVE)}`);
+	asm('je near ..@return_zero');
+	asm(`cmp ebx, ${hex(SC_MONITORPOWER)}`);
+	asm('je near ..@return_zero');
+	asm('jmp near ..@WndProc__default');
+	asm('..@return_zero:');
+	asm('xor eax, eax');
+	asm('ret');
+	asm('WndProc__WM_Close:');
+	asm(__ms_64_fastcall_w_error_check({ proc: 'PostQuitMessage', args: [
+		{ value: 0, size: 'dword', comment: 'int nExitCode' },
+	]}));
+	asm('xor eax, eax');
+	asm('ret');
+	asm('WndProc__WM_KeyDown:');
+	asm('xor eax, eax');
+	asm('ret');
+	asm('WndProc__WM_KeyUp:');
+	asm('xor eax, eax');
+	asm('ret');
+	asm('WndProc__WM_Size:');
+	asm('xor eax, eax');
+	asm('ret');
+
 	// asm(exit(0));
 
 	asm(BLOCKS.PROCS);
 };
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 
 const hex = n => '0x'+ n.toString(16);

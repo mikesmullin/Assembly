@@ -5,11 +5,14 @@ extern LoadImageA
 extern RegisterClassExA
 extern CreateWindowExA
 extern ShowWindow
+extern UpdateWindow
+
 ; main loop
 extern PeekMessageA
 extern TranslateMessage
 extern DispatchMessageA
 extern DefWindowProcA
+extern PostQuitMessage
 
 ; shutdown/cleanup
 extern LocalFree
@@ -23,7 +26,7 @@ extern GetStdHandle
 extern LocalSize
 extern WriteFile
 
-section .data
+section .data align=16
 GetLastError__errCode: dd 0
 GetLastError__msgLen: dd 0
 GetLastError__msgBuf: dq 0
@@ -54,7 +57,8 @@ MainWindow_1.hIconSm dq 0 ; HICON
 CreateWindow__atom_name: dq 0
 CreateWindow__hwnd: dq 0
 CreateWindow__title: db "OpenGL Demo",0
-ShowWindow__successful: dd 0
+ShowWindow__result: dd 0
+UpdateWindow__result: dd 0
 
 ; struct
 IncomingMessage_1: ; instanceof tagMSG
@@ -67,6 +71,8 @@ IncomingMessage_1.pt.x dd 0 ; dword
 IncomingMessage_1.pt.y dd 0 ; dword
 IncomingMessage_1.lPrivate dd 0 ; dword
 
+padding: times 4 db 0 ; not sure why padding is needed here but must find out proper alignment: db 0
+dot: db "."
 PeekMessage_hasMsgs: dd 0
 nWndProc__hWnd: dq 0
 nWndProc__uMsg: dq 0
@@ -74,7 +80,7 @@ nWndProc__wParam: dq 0
 nWndProc__lParam: dq 0
 nWndProc__return: dq 0
 
-section .text
+section .text align=16
 global main
 main:
 
@@ -179,10 +185,19 @@ call near GetLastError__epilogue_check
 call near GetLastError__prologue_reset
 ; MS __fastcall x64 ABI
 sub rsp, 40 ; allocate shadow space
-mov dword edx, 1 ; 2nd: int nCmdShow
+mov dword edx, 1 ; 2nd: int  nCmdShow
 mov qword rcx, [CreateWindow__hwnd] ; 1st: HWND hWnd
 call ShowWindow
-mov dword [ShowWindow__successful], eax ; return BOOL successful
+mov dword [ShowWindow__result], eax ; return BOOL
+add rsp, 40 ; deallocate shadow space
+call near GetLastError__epilogue_check
+
+call near GetLastError__prologue_reset
+; MS __fastcall x64 ABI
+sub rsp, 40 ; allocate shadow space
+mov qword rcx, [CreateWindow__hwnd] ; 1st: HWND hWnd
+call UpdateWindow
+mov dword [UpdateWindow__result], eax ; return BOOL
 add rsp, 40 ; deallocate shadow space
 call near GetLastError__epilogue_check
 
@@ -200,8 +215,24 @@ mov dword [PeekMessage_hasMsgs], eax ; return BOOL
 add rsp, 48 ; deallocate shadow space
 call near GetLastError__epilogue_check
 
-cmp rax, 0
+cmp dword [PeekMessage_hasMsgs], 0 ; zero messages
 je near Loop
+cmp dword [IncomingMessage_1.message], 0x12 ; WM_QUIT
+jne near ..@Loop__processMessage
+; MS __fastcall x64 ABI
+sub rsp, 48 ; allocate shadow space
+mov dword [rsp + 32], 0 ; 5th: LPOVERLAPPED lpOverlapped
+mov dword r9d, Console__bytesWritten ; 4th: LPDWORD lpNumberOfBytesWritten
+mov dword r8d, 1 ; 3rd: DWORD nNumberOfBytesToWrite
+mov dword edx, dot ; 2nd: LPCVOID lpBuffer
+mov dword ecx, [Console__stdout_nStdHandle] ; 1st: HANDLE hFile
+call WriteFile
+add rsp, 48 ; deallocate shadow space
+
+mov ecx, 0 ; UINT uExitCode
+jmp near Exit
+
+..@Loop__processMessage:
 call near GetLastError__prologue_reset
 ; MS __fastcall x64 ABI
 sub rsp, 40 ; allocate shadow space
@@ -225,6 +256,19 @@ mov qword [nWndProc__hWnd], rcx
 mov qword [nWndProc__uMsg], rdx
 mov qword [nWndProc__wParam], r8
 mov qword [nWndProc__lParam], r9
+cmp rdx, 0x6
+je near WndProc__WM_Activate
+cmp rdx, 0x112
+je near WndProc__WM_SysCommand
+cmp rdx, 0x10
+je near WndProc__WM_Close
+cmp rdx, 0x100
+je near WndProc__WM_KeyDown
+cmp rdx, 0x101
+je near WndProc__WM_KeyUp
+cmp rdx, 0x5
+je near WndProc__WM_Size
+..@WndProc__default:
 call near GetLastError__prologue_reset
 ; MS __fastcall x64 ABI
 sub rsp, 40 ; allocate shadow space
@@ -238,6 +282,39 @@ add rsp, 40 ; deallocate shadow space
 call near GetLastError__epilogue_check
 
 mov qword rax, [nWndProc__return]
+ret
+WndProc__WM_Activate:
+xor eax, eax
+ret
+WndProc__WM_SysCommand:
+mov ebx, [nWndProc__wParam]
+cmp ebx, 0xf140
+je near ..@return_zero
+cmp ebx, 0xf170
+je near ..@return_zero
+jmp near ..@WndProc__default
+..@return_zero:
+xor eax, eax
+ret
+WndProc__WM_Close:
+call near GetLastError__prologue_reset
+; MS __fastcall x64 ABI
+sub rsp, 40 ; allocate shadow space
+mov dword ecx, 0 ; 1st: int nExitCode
+call PostQuitMessage
+add rsp, 40 ; deallocate shadow space
+call near GetLastError__epilogue_check
+
+xor eax, eax
+ret
+WndProc__WM_KeyDown:
+xor eax, eax
+ret
+WndProc__WM_KeyUp:
+xor eax, eax
+ret
+WndProc__WM_Size:
+xor eax, eax
 ret
 
 GetLastError__prologue_reset:
