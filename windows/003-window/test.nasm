@@ -4,10 +4,6 @@ extern CreateMutexA
 extern LoadImageA
 extern RegisterClassExA
 extern CreateWindowExA
-extern ShowWindow
-extern UpdateWindow
-extern SetForegroundWindow
-extern SetFocus
 
 ; main loop
 extern PeekMessageA
@@ -17,7 +13,6 @@ extern DefWindowProcA
 extern PostQuitMessage
 
 ; shutdown/cleanup
-extern LocalFree
 extern ExitProcess
 
 ; error handling
@@ -25,14 +20,13 @@ extern SetLastError
 extern GetLastError
 extern FormatMessageA
 extern GetStdHandle
-extern LocalSize
 extern WriteFile
 
 section .data align=16
 GetLastError__errCode: dd 0
 Console__stderr_nStdHandle: dd 0
 Console__stdout_nStdHandle: dd 0
-FormatMessage__tmpReturnBuffer: dq 0
+FormatMessage__tmpReturnBuffer: times 256 db 0
 FormatMessage__tmpReturnBufferLength: dd 0
 Console__bytesWritten: dd 0
 Generic__uuid: db "e44d7545-f9df-418e-bc37-11ad4535d32f",0
@@ -59,32 +53,32 @@ MainWindow_1.hIconSm dq 0 ; HICON
 CreateWindow__atom_name: dq 0
 CreateWindow__hwnd: dq 0
 CreateWindow__title: db "OpenGL Demo",0
-ShowWindow__result: dd 0
-UpdateWindow__result: dd 0
-SetForegroundWindow__result: dd 0
-SetFocus__result: dd 0
 
 ; struct
 IncomingMessage_1: ; instanceof tagMSG
 IncomingMessage_1.hwnd dq 0 ; HWND
-IncomingMessage_1.message dq 0 ; UINT
+IncomingMessage_1.message dd 0 ; UINT
 IncomingMessage_1.wParam dq 0 ; WPARAM
 IncomingMessage_1.lParam dq 0 ; LPARAM
-IncomingMessage_1.time dq 0 ; dword
-IncomingMessage_1.pt.x dq 0 ; dword
-IncomingMessage_1.pt.y dq 0 ; dword
-IncomingMessage_1.lPrivate dq 0 ; dword
+IncomingMessage_1.time dd 0 ; dword
+IncomingMessage_1.pt.x dd 0 ; dword
+IncomingMessage_1.pt.y dd 0 ; dword
+IncomingMessage_1.lPrivate dd 0 ; dword
 
 padding: times 4 db 0 ; not sure why padding is needed here but must find out proper alignment: db 0
 dot: db "."
 dash: db "-"
 PeekMessage_hasMsgs: dd 0
-PeekMessage_msgIdFormatString: db ""\nMessage received:\n  hwnd: %I64X\n  message: %I64u\n  wParam: %I64X\n  lParam: %I64X\n  time: %I64X\n  pt.x: %I64u\n  pt.y: %I64u\n  lPrivate: %I64u\n"",0
+__trace_array: times 8 dq 0
+PeekMessage_msgIdFormatString: db 10,"Message received:",10,"  hwnd: %1!.16llX!",10,"  message: %2!.4llX!",10,"  wParam: %3!.16llX!",10,"  lParam: %4!.16llX!",10,"  time: %5!.16llX!",10,"  pt.x: %6!lu!",10,"  pt.y: %7!lu!",10,"  lPrivate: %8!.8llX!",10,0
+debug_trace_1: db "WM_QUIT received by main Loop.",10,0
 nWndProc__hWnd: dq 0
 nWndProc__uMsg: dq 0
 nWndProc__wParam: dq 0
 nWndProc__lParam: dq 0
 nWndProc__return: dq 0
+debug_trace_3: db "WM_DESTROY received by WndProc.",10,0
+debug_trace_2: db "WM_CLOSE received by WndProc.",10,0
 
 section .text align=16
 global main
@@ -96,7 +90,7 @@ call near GetLastError__prologue_reset
 ; MS __fastcall x64 ABI
 sub rsp, 40 ; allocate shadow space
 mov dword ecx, -12 ; 1st: DWORD nStdHandle = STD_ERROR_HANDLE
-call GetStdHandle
+    call GetStdHandle
 mov dword [Console__stderr_nStdHandle], eax ; return 
 add rsp, 40 ; deallocate shadow space
 call near GetLastError__epilogue_check
@@ -105,7 +99,7 @@ call near GetLastError__prologue_reset
 ; MS __fastcall x64 ABI
 sub rsp, 40 ; allocate shadow space
 mov dword ecx, -11 ; 1st: DWORD nStdHandle = STD_OUTPUT_HANDLE
-call GetStdHandle
+    call GetStdHandle
 mov dword [Console__stdout_nStdHandle], eax ; return 
 add rsp, 40 ; deallocate shadow space
 call near GetLastError__epilogue_check
@@ -117,7 +111,7 @@ sub rsp, 40 ; allocate shadow space
 mov dword r8d, Generic__uuid ; 3rd: LPCSTR lpName
 mov dword edx, 1 ; 2nd: BOOL bInitialOwner
 mov dword ecx, 0 ; 1st: LPSECURITY_ATTRIBUTES lpMutexAttributes
-call CreateMutexA
+    call CreateMutexA
 mov qword [CreateMutexA__handle], rax ; return HANDLE
 add rsp, 40 ; deallocate shadow space
 call near GetLastError__epilogue_check
@@ -126,7 +120,7 @@ call near GetLastError__prologue_reset
 ; MS __fastcall x64 ABI
 sub rsp, 40 ; allocate shadow space
 mov dword ecx, 0 ; 1st: LPCSTR lpModuleName
-call GetModuleHandleA
+    call GetModuleHandleA
 mov qword [GetModuleHandleA__hModule], rax ; return HMODULE *phModule
 add rsp, 40 ; deallocate shadow space
 call near GetLastError__epilogue_check
@@ -140,7 +134,7 @@ mov dword r9d, 0 ; 4th: int cx
 mov dword r8d, 1 ; 3rd: UINT type = IMAGE_ICON
 mov dword edx, 32517 ; 2nd: LPCSTR name = OIC_WINLOGO
 mov dword ecx, 0 ; 1st: HINSTANCE hInst
-call LoadImageA
+    call LoadImageA
 mov qword [CreateWindow__icon], rax ; return HANDLE
 add rsp, 56 ; deallocate shadow space
 call near GetLastError__epilogue_check
@@ -154,7 +148,7 @@ mov dword r9d, 0 ; 4th: int cx
 mov dword r8d, 2 ; 3rd: UINT type = IMAGE_CURSOR
 mov dword edx, 32512 ; 2nd: LPCSTR name = IDC_ARROW
 mov dword ecx, 0 ; 1st: HINSTANCE hInst
-call LoadImageA
+    call LoadImageA
 mov qword [CreateWindow__cursor], rax ; return HANDLE
 add rsp, 56 ; deallocate shadow space
 call near GetLastError__epilogue_check
@@ -163,7 +157,7 @@ call near GetLastError__prologue_reset
 ; MS __fastcall x64 ABI
 sub rsp, 40 ; allocate shadow space
 mov qword rcx, MainWindow_1 ; 1st: WNDCLASSEXA *Arg1
-call RegisterClassExA
+    call RegisterClassExA
 mov qword [CreateWindow__atom_name], rax ; return 
 add rsp, 40 ; deallocate shadow space
 call near GetLastError__epilogue_check
@@ -183,46 +177,9 @@ mov qword r9, 0x16cf0000 ; 4th: DWORD dwStyle = WS_OVERLAPPEDWINDOW | WS_VISIBLE
 mov qword r8, CreateWindow__title ; 3rd: LPCSTR lpWindowName
 mov qword rdx, Generic__uuid ; 2nd: LPCSTR lpClassName
 mov qword rcx, 768 ; 1st: DWORD dwExStyle = WS_EX_OVERLAPPEDWINDOW
-call CreateWindowExA
+    call CreateWindowExA
 mov qword [CreateWindow__hwnd], rax ; return HWND
 add rsp, 104 ; deallocate shadow space
-call near GetLastError__epilogue_check
-
-call near GetLastError__prologue_reset
-; MS __fastcall x64 ABI
-sub rsp, 40 ; allocate shadow space
-mov dword edx, 1 ; 2nd: int  nCmdShow
-mov qword rcx, [CreateWindow__hwnd] ; 1st: HWND hWnd
-call ShowWindow
-mov dword [ShowWindow__result], eax ; return BOOL
-add rsp, 40 ; deallocate shadow space
-call near GetLastError__epilogue_check
-
-call near GetLastError__prologue_reset
-; MS __fastcall x64 ABI
-sub rsp, 40 ; allocate shadow space
-mov qword rcx, [CreateWindow__hwnd] ; 1st: HWND hWnd
-call UpdateWindow
-mov dword [UpdateWindow__result], eax ; return BOOL
-add rsp, 40 ; deallocate shadow space
-call near GetLastError__epilogue_check
-
-call near GetLastError__prologue_reset
-; MS __fastcall x64 ABI
-sub rsp, 40 ; allocate shadow space
-mov qword rcx, [CreateWindow__hwnd] ; 1st: HWND hWnd
-call SetForegroundWindow
-mov dword [SetForegroundWindow__result], eax ; return BOOL
-add rsp, 40 ; deallocate shadow space
-call near GetLastError__epilogue_check
-
-call near GetLastError__prologue_reset
-; MS __fastcall x64 ABI
-sub rsp, 40 ; allocate shadow space
-mov qword rcx, [CreateWindow__hwnd] ; 1st: HWND hWnd
-call SetFocus
-mov dword [SetFocus__result], eax ; return BOOL
-add rsp, 40 ; deallocate shadow space
 call near GetLastError__epilogue_check
 
 Loop:
@@ -234,58 +191,73 @@ mov dword r9d, 0 ; 4th: UINT wMsgFilterMax
 mov dword r8d, 0 ; 3rd: UINT wMsgFilterMin
 mov qword rdx, [CreateWindow__hwnd] ; 2nd: HWND hWnd
 mov qword rcx, IncomingMessage_1 ; 1st: LPMSG lpMsg
-call PeekMessageA
+    call PeekMessageA
 mov dword [PeekMessage_hasMsgs], eax ; return BOOL
 add rsp, 48 ; deallocate shadow space
 call near GetLastError__epilogue_check
 
 cmp dword [PeekMessage_hasMsgs], 0 ; zero messages
 je near Loop
+mov qword rax, [IncomingMessage_1.hwnd]
+mov qword [__trace_array + 0], rax
+mov dword eax, [IncomingMessage_1.message]
+mov dword [__trace_array + 8], eax
+mov qword rax, [IncomingMessage_1.wParam]
+mov qword [__trace_array + 16], rax
+mov qword rax, [IncomingMessage_1.lParam]
+mov qword [__trace_array + 24], rax
+mov dword eax, [IncomingMessage_1.pt.x]
+mov dword [__trace_array + 32], eax
+mov dword eax, [IncomingMessage_1.pt.y]
+mov dword [__trace_array + 40], eax
+mov dword eax, [IncomingMessage_1.lPrivate]
+mov dword [__trace_array + 48], eax
 ; MS __fastcall x64 ABI
 sub rsp, 64 ; allocate shadow space
-mov dword [rsp + 48], IncomingMessage_1 ; 7th: va_list *Arguments
-mov dword [rsp + 40], 8 ; 6th: DWORD nSize
-mov dword [rsp + 32], FormatMessage__tmpReturnBuffer ; 5th: LPSTR lpBuffer
-mov dword r9d, 0x400 ; 4th: DWORD dwLanguageId = LANG_USER_DEFAULT, SUBLANG_DEFAULT
+mov qword [rsp + 48], __trace_array ; 7th: va_list *Arguments
+mov qword [rsp + 40], 256 ; 6th: DWORD nSize
+mov qword [rsp + 32], FormatMessage__tmpReturnBuffer ; 5th: LPSTR lpBuffer
+mov dword r9d, 0x0 ; 4th: DWORD dwLanguageId
 mov dword r8d, 0 ; 3rd: DWORD dwMessageId
 mov dword edx, PeekMessage_msgIdFormatString ; 2nd: LPCVOID lpSource
-mov dword ecx, 0x2500 ; 1st: DWORD dwFlags
-call FormatMessageA
+mov dword ecx, 0x2400 ; 1st: DWORD dwFlags
+    call FormatMessageA
+mov dword [FormatMessage__tmpReturnBufferLength], eax ; return DWORD TCHARs written
 add rsp, 64 ; deallocate shadow space
 
-; MS __fastcall x64 ABI
-sub rsp, 40 ; allocate shadow space
-mov dword ecx, [FormatMessage__tmpReturnBuffer] ; 1st: HLOCAL hMem
-call LocalSize
-mov dword [FormatMessage__tmpReturnBufferLength], eax ; return 
-add rsp, 40 ; deallocate shadow space
 ; MS __fastcall x64 ABI
 sub rsp, 48 ; allocate shadow space
 mov dword [rsp + 32], 0 ; 5th: LPOVERLAPPED lpOverlapped
 mov dword r9d, Console__bytesWritten ; 4th: LPDWORD lpNumberOfBytesWritten
 mov dword r8d, [FormatMessage__tmpReturnBufferLength] ; 3rd: DWORD nNumberOfBytesToWrite
-mov dword edx, [FormatMessage__tmpReturnBuffer] ; 2nd: LPCVOID lpBuffer
+mov dword edx, FormatMessage__tmpReturnBuffer ; 2nd: LPCVOID lpBuffer
 mov dword ecx, [Console__stdout_nStdHandle] ; 1st: HANDLE hFile
-call WriteFile
+    call WriteFile
 add rsp, 48 ; deallocate shadow space
-
-; cleanup
-; MS __fastcall x64 ABI
-sub rsp, 40 ; allocate shadow space
-mov dword ecx, [FormatMessage__tmpReturnBuffer] ; 1st: _Frees_ptr_opt_ HLOCAL hMem
-call LocalFree
-add rsp, 40 ; deallocate shadow space
 
 cmp dword [IncomingMessage_1.message], 0x12 ; WM_QUIT
 jne near ..@Loop__processMessage
 ; MS __fastcall x64 ABI
+sub rsp, 64 ; allocate shadow space
+mov qword [rsp + 48], 0 ; 7th: va_list *Arguments
+mov qword [rsp + 40], 256 ; 6th: DWORD nSize
+mov qword [rsp + 32], FormatMessage__tmpReturnBuffer ; 5th: LPSTR lpBuffer
+mov dword r9d, 0x0 ; 4th: DWORD dwLanguageId
+mov dword r8d, 0 ; 3rd: DWORD dwMessageId
+mov dword edx, debug_trace_1 ; 2nd: LPCVOID lpSource
+mov dword ecx, 0x2400 ; 1st: DWORD dwFlags
+    call FormatMessageA
+mov dword [FormatMessage__tmpReturnBufferLength], eax ; return DWORD TCHARs written
+add rsp, 64 ; deallocate shadow space
+
+; MS __fastcall x64 ABI
 sub rsp, 48 ; allocate shadow space
 mov dword [rsp + 32], 0 ; 5th: LPOVERLAPPED lpOverlapped
 mov dword r9d, Console__bytesWritten ; 4th: LPDWORD lpNumberOfBytesWritten
-mov dword r8d, 1 ; 3rd: DWORD nNumberOfBytesToWrite
-mov dword edx, dash ; 2nd: LPCVOID lpBuffer
+mov dword r8d, [FormatMessage__tmpReturnBufferLength] ; 3rd: DWORD nNumberOfBytesToWrite
+mov dword edx, FormatMessage__tmpReturnBuffer ; 2nd: LPCVOID lpBuffer
 mov dword ecx, [Console__stdout_nStdHandle] ; 1st: HANDLE hFile
-call WriteFile
+    call WriteFile
 add rsp, 48 ; deallocate shadow space
 
 mov ecx, 0 ; UINT uExitCode
@@ -296,7 +268,7 @@ call near GetLastError__prologue_reset
 ; MS __fastcall x64 ABI
 sub rsp, 40 ; allocate shadow space
 mov qword rcx, IncomingMessage_1 ; 1st: LPMSG lpMsg
-call TranslateMessage
+    call TranslateMessage
 add rsp, 40 ; deallocate shadow space
 call near GetLastError__epilogue_check
 
@@ -304,7 +276,7 @@ call near GetLastError__prologue_reset
 ; MS __fastcall x64 ABI
 sub rsp, 40 ; allocate shadow space
 mov qword rcx, IncomingMessage_1 ; 1st: LPMSG lpMsg
-call DispatchMessageA
+    call DispatchMessageA
 add rsp, 40 ; deallocate shadow space
 call near GetLastError__epilogue_check
 
@@ -321,6 +293,8 @@ cmp rdx, 0x112
 je near WndProc__WM_SysCommand
 cmp rdx, 0x10
 je near WndProc__WM_Close
+cmp rdx, 0x2
+je near WndProc__WM_Destroy
 cmp rdx, 0x100
 je near WndProc__WM_KeyDown
 cmp rdx, 0x101
@@ -335,7 +309,7 @@ mov qword r9, [nWndProc__lParam] ; 4th:
 mov qword r8, [nWndProc__wParam] ; 3rd: 
 mov qword rdx, [nWndProc__uMsg] ; 2nd: 
 mov qword rcx, [nWndProc__hWnd] ; 1st: 
-call DefWindowProcA
+    call DefWindowProcA
 mov qword [nWndProc__return], rax ; return 
 add rsp, 40 ; deallocate shadow space
 call near GetLastError__epilogue_check
@@ -355,22 +329,61 @@ jmp near ..@WndProc__default
 ..@return_zero:
 xor eax, eax
 ret
-WndProc__WM_Close:
+WndProc__WM_Destroy:
+; MS __fastcall x64 ABI
+sub rsp, 64 ; allocate shadow space
+mov qword [rsp + 48], 0 ; 7th: va_list *Arguments
+mov qword [rsp + 40], 256 ; 6th: DWORD nSize
+mov qword [rsp + 32], FormatMessage__tmpReturnBuffer ; 5th: LPSTR lpBuffer
+mov dword r9d, 0x0 ; 4th: DWORD dwLanguageId
+mov dword r8d, 0 ; 3rd: DWORD dwMessageId
+mov dword edx, debug_trace_3 ; 2nd: LPCVOID lpSource
+mov dword ecx, 0x2400 ; 1st: DWORD dwFlags
+    call FormatMessageA
+mov dword [FormatMessage__tmpReturnBufferLength], eax ; return DWORD TCHARs written
+add rsp, 64 ; deallocate shadow space
+
 ; MS __fastcall x64 ABI
 sub rsp, 48 ; allocate shadow space
 mov dword [rsp + 32], 0 ; 5th: LPOVERLAPPED lpOverlapped
 mov dword r9d, Console__bytesWritten ; 4th: LPDWORD lpNumberOfBytesWritten
-mov dword r8d, 1 ; 3rd: DWORD nNumberOfBytesToWrite
-mov dword edx, dot ; 2nd: LPCVOID lpBuffer
+mov dword r8d, [FormatMessage__tmpReturnBufferLength] ; 3rd: DWORD nNumberOfBytesToWrite
+mov dword edx, FormatMessage__tmpReturnBuffer ; 2nd: LPCVOID lpBuffer
 mov dword ecx, [Console__stdout_nStdHandle] ; 1st: HANDLE hFile
-call WriteFile
+    call WriteFile
+add rsp, 48 ; deallocate shadow space
+
+xor eax, eax
+ret
+WndProc__WM_Close:
+; MS __fastcall x64 ABI
+sub rsp, 64 ; allocate shadow space
+mov qword [rsp + 48], 0 ; 7th: va_list *Arguments
+mov qword [rsp + 40], 256 ; 6th: DWORD nSize
+mov qword [rsp + 32], FormatMessage__tmpReturnBuffer ; 5th: LPSTR lpBuffer
+mov dword r9d, 0x0 ; 4th: DWORD dwLanguageId
+mov dword r8d, 0 ; 3rd: DWORD dwMessageId
+mov dword edx, debug_trace_2 ; 2nd: LPCVOID lpSource
+mov dword ecx, 0x2400 ; 1st: DWORD dwFlags
+    call FormatMessageA
+mov dword [FormatMessage__tmpReturnBufferLength], eax ; return DWORD TCHARs written
+add rsp, 64 ; deallocate shadow space
+
+; MS __fastcall x64 ABI
+sub rsp, 48 ; allocate shadow space
+mov dword [rsp + 32], 0 ; 5th: LPOVERLAPPED lpOverlapped
+mov dword r9d, Console__bytesWritten ; 4th: LPDWORD lpNumberOfBytesWritten
+mov dword r8d, [FormatMessage__tmpReturnBufferLength] ; 3rd: DWORD nNumberOfBytesToWrite
+mov dword edx, FormatMessage__tmpReturnBuffer ; 2nd: LPCVOID lpBuffer
+mov dword ecx, [Console__stdout_nStdHandle] ; 1st: HANDLE hFile
+    call WriteFile
 add rsp, 48 ; deallocate shadow space
 
 call near GetLastError__prologue_reset
 ; MS __fastcall x64 ABI
 sub rsp, 40 ; allocate shadow space
 mov dword ecx, 0 ; 1st: int nExitCode
-call PostQuitMessage
+    call PostQuitMessage
 add rsp, 40 ; deallocate shadow space
 call near GetLastError__epilogue_check
 
@@ -390,14 +403,14 @@ GetLastError__prologue_reset:
 ; MS __fastcall x64 ABI
 sub rsp, 40 ; allocate shadow space
 mov dword ecx, 0 ; 1st: DWORD dwErrCode
-call SetLastError
+    call SetLastError
 add rsp, 40 ; deallocate shadow space
 ret
 
 GetLastError__epilogue_check:
 ; MS __fastcall x64 ABI
 sub rsp, 40 ; allocate shadow space
-call GetLastError
+    call GetLastError
 mov dword [GetLastError__errCode], eax ; return 
 add rsp, 40 ; deallocate shadow space
 cmp rax, 0
@@ -407,38 +420,26 @@ ret
 ..@error:
 ; MS __fastcall x64 ABI
 sub rsp, 64 ; allocate shadow space
-mov dword [rsp + 48], 0 ; 7th: va_list *Arguments
-mov dword [rsp + 40], 0 ; 6th: DWORD nSize
-mov dword [rsp + 32], FormatMessage__tmpReturnBuffer ; 5th: LPSTR lpBuffer
-mov dword r9d, 0x400 ; 4th: DWORD dwLanguageId = LANG_USER_DEFAULT, SUBLANG_DEFAULT
+mov qword [rsp + 48], 0 ; 7th: va_list *Arguments
+mov qword [rsp + 40], 256 ; 6th: DWORD nSize
+mov qword [rsp + 32], FormatMessage__tmpReturnBuffer ; 5th: LPSTR lpBuffer
+mov dword r9d, 0x400 ; 4th: DWORD dwLanguageId
 mov dword r8d, [GetLastError__errCode] ; 3rd: DWORD dwMessageId
 mov dword edx, 0 ; 2nd: LPCVOID lpSource
-mov dword ecx, 0x1300 ; 1st: DWORD dwFlags
-call FormatMessageA
+mov dword ecx, 0x1200 ; 1st: DWORD dwFlags
+    call FormatMessageA
+mov dword [FormatMessage__tmpReturnBufferLength], eax ; return DWORD TCHARs written
 add rsp, 64 ; deallocate shadow space
 
-; MS __fastcall x64 ABI
-sub rsp, 40 ; allocate shadow space
-mov dword ecx, [FormatMessage__tmpReturnBuffer] ; 1st: HLOCAL hMem
-call LocalSize
-mov dword [FormatMessage__tmpReturnBufferLength], eax ; return 
-add rsp, 40 ; deallocate shadow space
 ; MS __fastcall x64 ABI
 sub rsp, 48 ; allocate shadow space
 mov dword [rsp + 32], 0 ; 5th: LPOVERLAPPED lpOverlapped
 mov dword r9d, Console__bytesWritten ; 4th: LPDWORD lpNumberOfBytesWritten
 mov dword r8d, [FormatMessage__tmpReturnBufferLength] ; 3rd: DWORD nNumberOfBytesToWrite
-mov dword edx, [FormatMessage__tmpReturnBuffer] ; 2nd: LPCVOID lpBuffer
+mov dword edx, FormatMessage__tmpReturnBuffer ; 2nd: LPCVOID lpBuffer
 mov dword ecx, [Console__stdout_nStdHandle] ; 1st: HANDLE hFile
-call WriteFile
+    call WriteFile
 add rsp, 48 ; deallocate shadow space
-
-; cleanup
-; MS __fastcall x64 ABI
-sub rsp, 40 ; allocate shadow space
-mov dword ecx, [FormatMessage__tmpReturnBuffer] ; 1st: _Frees_ptr_opt_ HLOCAL hMem
-call LocalFree
-add rsp, 40 ; deallocate shadow space
 
 mov ecx, [GetLastError__errCode] ; UINT uExitCode
 jmp near Exit
@@ -446,7 +447,7 @@ jmp near Exit
 Exit:
 ; MS __fastcall x64 ABI
 sub rsp, 40 ; allocate shadow space
-call ExitProcess
+    call ExitProcess
 add rsp, 40 ; deallocate shadow space
 
 

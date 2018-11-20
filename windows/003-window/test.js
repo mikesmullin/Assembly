@@ -6,8 +6,8 @@ const _ = require('lodash');
 const [,,OUT_FILE] = process.argv;
 let section = 'preprocessor';
 const sections = { preprocessor: '', '.data': '', '.text': '' };
-const _var = (name, size='b', val=0) =>
-	sections['.data'] += `${name}: d${size} ${val}\n`;
+const _var = (name, size='db', val=0) =>
+	sections['.data'] += `${name}: ${size} ${val}\n`;
 const asm = s => {
 	sections[section] += s + "\n";
 };
@@ -63,14 +63,14 @@ STRUCTS.tagWNDCLASSEXA = { name: 'tagWNDCLASSEXA', data: {
 }};
 
 STRUCTS.tagMSG = { name: 'tagMSG', data: {
-	hwnd: { type: { ...TYPES.HWND, size: 8 } },
-  message: { type: { ...TYPES.UINT, size: 8 }  },
-  wParam: { type: { ...TYPES.WPARAM, size: 8 }  },
-  lParam: { type: { ...TYPES.LPARAM, size: 8 }  },
-  time: { type: { ...TYPES.DWORD, size: 8 }  },
-	'pt.x': { type: { ...TYPES.DWORD, size: 8 }  },
-	'pt.y': { type: { ...TYPES.DWORD, size: 8 }  },
-  lPrivate: { type: { ...TYPES.DWORD, size: 8 }  },
+	hwnd: { type: TYPES.HWND, default: 0 },
+  message: { type: TYPES.UINT, default: 0 },
+  wParam: { type: TYPES.WPARAM, default: 0 },
+  lParam: { type: TYPES.LPARAM, default: 0 },
+  time: { type: TYPES.DWORD, default: 0 },
+	'pt.x': { type: TYPES.DWORD, default: 0 },
+	'pt.y': { type: TYPES.DWORD, default: 0 },
+  lPrivate: { type: TYPES.DWORD, default: 0 },
 }};
 
 const instance_counter = {};
@@ -136,10 +136,6 @@ const build = () => {
 	asm('extern LoadImageA');
 	asm('extern RegisterClassExA');
 	asm('extern CreateWindowExA');
-	asm('extern ShowWindow');
-	asm('extern UpdateWindow');
-	asm('extern SetForegroundWindow');
-	asm('extern SetFocus');
 
 	asm('\n; main loop');
 	asm('extern PeekMessageA');
@@ -149,7 +145,6 @@ const build = () => {
 	asm('extern PostQuitMessage');
 	
 	asm(`\n; shutdown/cleanup`);
-	asm('extern LocalFree');
 	asm('extern ExitProcess');
 
 	asm(`\n; error handling`);
@@ -157,7 +152,6 @@ const build = () => {
 	asm('extern GetLastError');
 	asm('extern FormatMessageA');
 	asm('extern GetStdHandle');
-	asm('extern LocalSize');
 	asm('extern WriteFile');
 
 	section = '.text';
@@ -167,10 +161,10 @@ const build = () => {
 	asm(BLOCKS.INIT);
 
 	// generic reusable uuid any time an api function wants a string identifier
-	_var('Generic__uuid', 'b', '"e44d7545-f9df-418e-bc37-11ad4535d32f",0');
+	_var('Generic__uuid', 'db', '"e44d7545-f9df-418e-bc37-11ad4535d32f",0');
 
 	// verify the window is not open twice
-	_var('CreateMutexA__handle', 'q');
+	_var('CreateMutexA__handle', 'dq');
 	asm(__ms_64_fastcall_w_error_check({ proc: 'CreateMutexA',
 		args: [
 			{ value: 0, size: 'dword', comment: 'LPSECURITY_ATTRIBUTES lpMutexAttributes' },
@@ -184,7 +178,7 @@ const build = () => {
 	// Note that as of 32-bit Windows, an instance handle (HINSTANCE), such as the
 	// application instance handle exposed by system function call of WinMain, and
 	// a module handle (HMODULE) are the same thing.
-	_var('GetModuleHandleA__hModule', 'q');
+	_var('GetModuleHandleA__hModule', 'dq');
 	asm(__ms_64_fastcall_w_error_check({ proc: 'GetModuleHandleA',
 		ret: { value: '[GetModuleHandleA__hModule]', size: 'qword', comment: 'HMODULE *phModule' },
 		args: [
@@ -201,8 +195,8 @@ const build = () => {
 	const LR_DEFAULTSIZE = 0x00000040;
 	const LR_SHARED = 0x00008000;
 	// see: https://docs.microsoft.com/en-us/windows/desktop/api/winuser/nf-winuser-loadicona
-	_var('CreateWindow__icon', 'q');
-	_var('CreateWindow__cursor', 'q');
+	_var('CreateWindow__icon', 'dq');
+	_var('CreateWindow__cursor', 'dq');
 	asm(__ms_64_fastcall_w_error_check({ proc: 'LoadImageA',
 		args: [
 			{ value: 0, size: 'dword', comment: 'HINSTANCE hInst' },
@@ -244,7 +238,7 @@ const build = () => {
 		hIcon: 'CreateWindow__icon',
 		hCursor: 'CreateWindow__cursor',
 	});
-	_var('CreateWindow__atom_name', 'q');
+	_var('CreateWindow__atom_name', 'dq');
 	asm(__ms_64_fastcall_w_error_check({ proc: 'RegisterClassExA',
 		args: [
 			{ value: MainWindow, size: 'qword', comment: 'WNDCLASSEXA *Arg1' },
@@ -269,8 +263,8 @@ const build = () => {
 	// see: https://docs.microsoft.com/en-us/windows/desktop/winmsg/window-styles
 	const CW_USEDEFAULT    = 0x80000000;
 	// see: https://github.com/tpn/winsdk-10/blob/master/Include/10.0.10240.0/um/WinUser.h#L4292
-	_var('CreateWindow__hwnd', 'q');
-	_var('CreateWindow__title', 'b', '"OpenGL Demo",0');
+	_var('CreateWindow__hwnd', 'dq');
+	_var('CreateWindow__title', 'db', '"OpenGL Demo",0');
 	const WIDTH = 640;
 	const HEIGHT = 480;
 	asm(__ms_64_fastcall_w_error_check({ proc: 'CreateWindowExA',
@@ -293,59 +287,16 @@ const build = () => {
 		ret: { value: '[CreateWindow__hwnd]', size: 'qword', comment: 'HWND' },
 	}));
 
-	_var('ShowWindow__result', 'd');
-	asm(__ms_64_fastcall_w_error_check({ proc: 'ShowWindow',
-		args: [
-			{ value: '[CreateWindow__hwnd]', size: 'qword', comment: 'HWND hWnd' },
-			{ value: '1', size: 'dword', comment: 'int  nCmdShow' },
-		],
-		ret: { value: '[ShowWindow__result]', size: 'dword', comment: 'BOOL' },
-	}));
+	const IncomingMessage = istruct('IncomingMessage', STRUCTS.tagMSG, {});	
 
-	_var('UpdateWindow__result', 'd');
-	asm(__ms_64_fastcall_w_error_check({ proc: 'UpdateWindow',
-		args: [
-			{ value: '[CreateWindow__hwnd]', size: 'qword', comment: 'HWND hWnd' },
-		],
-		ret: { value: '[UpdateWindow__result]', size: 'dword', comment: 'BOOL' },
-	}));
-
-	_var('SetForegroundWindow__result', 'd');
-	asm(__ms_64_fastcall_w_error_check({ proc: 'SetForegroundWindow',
-		args: [
-			{ value: '[CreateWindow__hwnd]', size: 'qword', comment: 'HWND hWnd' },
-		],
-		ret: { value: '[SetForegroundWindow__result]', size: 'dword', comment: 'BOOL' },
-	}));
-
-	_var('SetFocus__result', 'd');
-	asm(__ms_64_fastcall_w_error_check({ proc: 'SetFocus',
-		args: [
-			{ value: '[CreateWindow__hwnd]', size: 'qword', comment: 'HWND hWnd' },
-		],
-		ret: { value: '[SetFocus__result]', size: 'dword', comment: 'BOOL' },
-	}));
-
-	const IncomingMessage = istruct('IncomingMessage', STRUCTS.tagMSG, {
-		hwnd: 0,
-		message: 0,
-		wParam: 0,
-		lParam: 0,
-		time: 0,
-		'pt.x': 0,
-		'pt.y': 0,
-		lPrivate: 0,
-	});	
-
-	
 	// TODO: remove these after debugging
 	_var('padding: times 4 db 0 ; not sure why padding is needed here but must find out proper alignment');
-	_var('dot', 'b', '"."');
-	_var('dash', 'b', '"-"');
+	_var('dot', 'db', '"."');
+	_var('dash', 'db', '"-"');
 	
 	asm('Loop:');
 	const PM_REMOVE = 0x0001;
-	_var('PeekMessage_hasMsgs', 'd');
+	_var('PeekMessage_hasMsgs', 'dd');
 	asm(__ms_64_fastcall_w_error_check({ proc: 'PeekMessageA',
 		args: [
 			{ value: IncomingMessage, size: 'qword', comment: 'LPMSG lpMsg' },
@@ -361,22 +312,39 @@ const build = () => {
 	asm('je near Loop');
 
 	// debug trace
+	_var('__trace_array', 'times 8 dq');
+	asm(`mov qword rax, [${IncomingMessage}.hwnd]`);
+	asm('mov qword [__trace_array + 0], rax');
+	asm(`mov dword eax, [${IncomingMessage}.message]`);
+	asm('mov dword [__trace_array + 8], eax');
+	asm(`mov qword rax, [${IncomingMessage}.wParam]`);
+	asm('mov qword [__trace_array + 16], rax');
+	asm(`mov qword rax, [${IncomingMessage}.lParam]`);
+	asm('mov qword [__trace_array + 24], rax');
+	asm(`mov dword eax, [${IncomingMessage}.pt.x]`);
+	asm('mov dword [__trace_array + 32], eax');
+	asm(`mov dword eax, [${IncomingMessage}.pt.y]`);
+	asm('mov dword [__trace_array + 40], eax');
+	asm(`mov dword eax, [${IncomingMessage}.lPrivate]`);
+	asm('mov dword [__trace_array + 48], eax');
+	// NOTICE: bytes are truncated to 32-bits by the FormatString function;
+	// this can be fixed if i figure out how to pass the va_list struct
+	// https://stackoverflow.com/questions/4958384/what-is-the-format-of-the-x86-64-va-list-structure
 	asm(printf(FormatString('PeekMessage_msgIdFormatString',
-		`\nMessage received:\n`+
-		`  hwnd: %I64X\n`+
-		`  message: %I64u\n`+
-		`  wParam: %I64X\n`+
-		`  lParam: %I64X\n`+
-		`  time: %I64X\n`+
-		`  pt.x: %I64u\n`+
-		`  pt.y: %I64u\n`+
-		`  lPrivate: %I64u\n`,
-		8,
-		IncomingMessage), Asm.Console.log));
+		`10,"Message received:",10`+
+		`,"  hwnd: %1!.16llX!",10`+
+		`,"  message: %2!.4llX!",10`+
+		`,"  wParam: %3!.16llX!",10`+
+		`,"  lParam: %4!.16llX!",10`+
+		`,"  time: %5!.16llX!",10`+
+		`,"  pt.x: %6!lu!",10`+
+		`,"  pt.y: %7!lu!",10`+
+		`,"  lPrivate: %8!.8llX!",10`,
+		'__trace_array'), Asm.Console.log));
 
 	asm(`cmp dword [${IncomingMessage}.message], ${hex(WM_QUIT)} ; WM_QUIT`);
 	asm('jne near ..@Loop__processMessage');
-	asm(Asm.Console.log('dash', 1));
+	asm(printf(FormatString('debug_trace_1', `"WM_QUIT received by main Loop.",10`, 0), Asm.Console.log));
 	asm(exit(0));
 
 	asm('..@Loop__processMessage:');
@@ -396,7 +364,7 @@ const build = () => {
 	const WM_ACTIVATE = 0x0006;
 	const WM_SYSCOMMAND = 0x0112;
 	const WM_CLOSE = 0x0010;
-	// const WM_DESTROY = 0x0002;
+	const WM_DESTROY = 0x0002;
 	const WM_KEYDOWN = 0x0100;
 	const WM_KEYUP = 0x0101;
 	const WM_SIZE = 0x0005;
@@ -404,11 +372,11 @@ const build = () => {
 	const SC_SCREENSAVE = 0x0F140;
 	const SC_MONITORPOWER = 0x0F170;
 	asm('\nWndProc:');
-	_var('nWndProc__hWnd', 'q');
-	_var('nWndProc__uMsg', 'q');
-	_var('nWndProc__wParam', 'q');
-	_var('nWndProc__lParam', 'q');
-	_var('nWndProc__return', 'q');
+	_var('nWndProc__hWnd', 'dq');
+	_var('nWndProc__uMsg', 'dq');
+	_var('nWndProc__wParam', 'dq');
+	_var('nWndProc__lParam', 'dq');
+	_var('nWndProc__return', 'dq');
 	asm('mov qword [nWndProc__hWnd], rcx');
 	asm('mov qword [nWndProc__uMsg], rdx');
 	asm('mov qword [nWndProc__wParam], r8');
@@ -423,6 +391,8 @@ const build = () => {
 	asm('je near WndProc__WM_SysCommand');
 	asm(`cmp rdx, ${hex(WM_CLOSE)}`);
 	asm('je near WndProc__WM_Close');
+	asm(`cmp rdx, ${hex(WM_DESTROY)}`);
+	asm('je near WndProc__WM_Destroy');
 	asm(`cmp rdx, ${hex(WM_KEYDOWN)}`);
 	asm('je near WndProc__WM_KeyDown');
 	asm(`cmp rdx, ${hex(WM_KEYUP)}`);
@@ -455,8 +425,12 @@ const build = () => {
 	asm('..@return_zero:');
 	asm('xor eax, eax');
 	asm('ret');
+	asm('WndProc__WM_Destroy:');
+	asm(printf(FormatString('debug_trace_3', `"WM_DESTROY received by WndProc.",10`, 0), Asm.Console.log));
+	asm('xor eax, eax');
+	asm('ret');
 	asm('WndProc__WM_Close:');
-	asm(Asm.Console.log('dot', 1));
+	asm(printf(FormatString('debug_trace_2', `"WM_CLOSE received by WndProc.",10`, 0), Asm.Console.log));
 	asm(__ms_64_fastcall_w_error_check({ proc: 'PostQuitMessage', args: [
 		{ value: 0, size: 'dword', comment: 'int nExitCode' },
 	]}));
@@ -546,7 +520,7 @@ const __ms_64_fastcall = ({ proc, ret, args=[] }) => {
 		else out += `mov ${arg.size} ${registers[i][arg.size]}, ${arg.value} ; ${pos}${arg.comment||''}\n`;
 	}
 	
-	out += `call ${proc}\n`;
+	out += `    call ${proc}\n`;
 
 	// handle return var, if provided
 	if (null != ret) {
@@ -558,7 +532,7 @@ const __ms_64_fastcall = ({ proc, ret, args=[] }) => {
 	return out;
 };
 
-_var('GetLastError__errCode', 'd');
+_var('GetLastError__errCode', 'dd');
 onready(()=>{
 	BLOCKS.PROCS += `\n`+
 		// ensure last error is 0
@@ -605,8 +579,8 @@ const Asm = {};
 Asm.Console = {};
 Asm.Console.STD_OUTPUT_HANDLE = -11;
 Asm.Console.STD_ERROR_HANDLE  = -12;
-_var('Console__stderr_nStdHandle', 'd');
-_var('Console__stdout_nStdHandle', 'd');
+_var('Console__stderr_nStdHandle', 'dd');
+_var('Console__stdout_nStdHandle', 'dd');
 onready(()=>{
 	BLOCKS.INIT += `\n`+
 		`; get pointers to stdout/stderr pipes\n`+
@@ -622,7 +596,7 @@ onready(()=>{
 			],
 			ret: { value: '[Console__stdout_nStdHandle]', size: 'dword' },
 		}) +`\n`;
-	_var('Console__bytesWritten', 'd');
+	_var('Console__bytesWritten', 'dd');
 });
 Asm.Console._base = (pipe, str, len) =>
 	__ms_64_fastcall({ proc: 'WriteFile',
@@ -637,63 +611,50 @@ Asm.Console._base = (pipe, str, len) =>
 Asm.Console.log = (str, len) => Asm.Console._base('out', str, len);
 Asm.Console.error = (str, len) => Asm.Console._base('err', str, len);
 
-const FORMAT_MESSAGE_ALLOCATE_BUFFER = 0x00000100;
 const FORMAT_MESSAGE_FROM_SYSTEM = 0x00001000;
 const FORMAT_MESSAGE_IGNORE_INSERTS = 0x00000200;
 const FORMAT_MESSAGE_ARGUMENT_ARRAY = 0x00002000;
 const FORMAT_MESSAGE_FROM_STRING = 0x00000400;
 const LANG_USER_DEFAULT__SUBLANG_DEFAULT = 0x0400;
-_var('FormatMessage__tmpReturnBuffer', 'q');
-_var('FormatMessage__tmpReturnBufferLength', 'd');
-const FormatMessage = (dwFlags, label, dwMessageId, size, args) => {
-	return __ms_64_fastcall({ proc: 'FormatMessageA', args: [
-		{ value: hex(dwFlags), size: 'dword', comment: 'DWORD dwFlags' },
-		{ value: label, size: 'dword', comment: 'LPCVOID lpSource' },
-		{ value: dwMessageId, size: 'dword', comment: 'DWORD dwMessageId' },
-		{ value: hex(LANG_USER_DEFAULT__SUBLANG_DEFAULT), size: 'dword',
-			comment: 'DWORD dwLanguageId = LANG_USER_DEFAULT, SUBLANG_DEFAULT' },
-		{ value: 'FormatMessage__tmpReturnBuffer', size: 'dword', comment: 'LPSTR lpBuffer' },
-		{ value: size, size: 'dword', comment: 'DWORD nSize' },
-		{ value: args, size: 'dword', comment: 'va_list *Arguments'},
-	]})
+const FormatMessage__tmpReturnBufferLength = 256;
+_var('FormatMessage__tmpReturnBuffer', `times ${FormatMessage__tmpReturnBufferLength} db`);
+_var('FormatMessage__tmpReturnBufferLength', `dd`);
+const FormatMessage = (dwFlags, label, dwMessageId, dwLanguageId, args) => {
+	return __ms_64_fastcall({ proc: 'FormatMessageA',
+		args: [
+			{ value: hex(dwFlags), size: 'dword', comment: 'DWORD dwFlags' },
+			{ value: label, size: 'dword', comment: 'LPCVOID lpSource' },
+			{ value: dwMessageId, size: 'dword', comment: 'DWORD dwMessageId' },
+			{ value: hex(dwLanguageId), size: 'dword', comment: 'DWORD dwLanguageId' },
+			{ value: 'FormatMessage__tmpReturnBuffer', size: 'qword', comment: 'LPSTR lpBuffer' },
+			{ value: FormatMessage__tmpReturnBufferLength, size: 'qword', comment: 'DWORD nSize' },
+			{ value: args, size: 'qword', comment: 'va_list *Arguments'},
+		],
+		ret: { value: '[FormatMessage__tmpReturnBufferLength]', size: 'dword', comment: 'DWORD TCHARs written' },
+	})
 }
-const GetErrorMessage = (dwMessageId) => {
+const GetErrorMessage = dwMessageId => {
 	return FormatMessage(
-		FORMAT_MESSAGE_ALLOCATE_BUFFER |
 		FORMAT_MESSAGE_FROM_SYSTEM |
 		FORMAT_MESSAGE_IGNORE_INSERTS,
 		0,
 		dwMessageId,
-		0,
+		LANG_USER_DEFAULT__SUBLANG_DEFAULT,
 		0);
 };
-const FormatString = (formatStringLabel, formatString, arraySize, arrayPtr) => {
-	_var(formatStringLabel, 'b', `"${JSON.stringify(formatString)}",0`);
+const FormatString = (formatStringLabel, formatString, arrayPtr) => {
+	_var(formatStringLabel, 'db', `${formatString},0`);
 	return FormatMessage(
-		FORMAT_MESSAGE_ALLOCATE_BUFFER |
 		FORMAT_MESSAGE_ARGUMENT_ARRAY |
 		FORMAT_MESSAGE_FROM_STRING,
 		formatStringLabel,
 		0,
-		arraySize,
+		0,
 		arrayPtr);
 };
 const printf = (formatAsm, outputCb) => {
 	return formatAsm +'\n'+
-
-		__ms_64_fastcall({ proc: 'LocalSize',
-			ret: { value: '[FormatMessage__tmpReturnBufferLength]', size: 'dword' },
-			args: [
-				{ value: '[FormatMessage__tmpReturnBuffer]', size: 'dword', comment: 'HLOCAL hMem' },
-			]
-		}) +
-
-		outputCb('[FormatMessage__tmpReturnBuffer]', '[FormatMessage__tmpReturnBufferLength]') +
-
-		'\n; cleanup\n' +
-		__ms_64_fastcall({ proc: 'LocalFree', args: [
-			{ value: '[FormatMessage__tmpReturnBuffer]', size: 'dword', comment: '_Frees_ptr_opt_ HLOCAL hMem'},
-		]});
+		outputCb('FormatMessage__tmpReturnBuffer', '[FormatMessage__tmpReturnBufferLength]');
 };
 
 init();
