@@ -136,8 +136,6 @@ const build = () => {
 	asm('extern LoadImageA');
 	asm('extern RegisterClassExA');
 	asm('extern CreateWindowExA');
-	asm('extern ShowWindow');
-	asm('extern UpdateWindow');
 
 	asm('\n; main loop');
 	asm('extern PeekMessageA');
@@ -289,23 +287,6 @@ const build = () => {
 			{ value: 0, size: 'qword', comment: 'LPVOID lpParam' },
 		],
 		ret: { value: '[CreateWindow__hwnd]', size: 'qword', comment: 'HWND' },
-	}));
-
-	_var('ShowWindow__result', 'd');
-	asm(__ms_64_fastcall_w_error_check({ proc: 'ShowWindow',
-		args: [
-			{ value: '[CreateWindow__hwnd]', size: 'qword', comment: 'HWND hWnd' },
-			{ value: '1', size: 'dword', comment: 'int  nCmdShow' },
-		],
-		ret: { value: '[ShowWindow__result]', size: 'dword', comment: 'BOOL' },
-	}));
-
-	_var('UpdateWindow__result', 'd');
-	asm(__ms_64_fastcall_w_error_check({ proc: 'UpdateWindow',
-		args: [
-			{ value: '[CreateWindow__hwnd]', size: 'qword', comment: 'HWND hWnd' },
-		],
-		ret: { value: '[UpdateWindow__result]', size: 'dword', comment: 'BOOL' },
 	}));
 
 	const IncomingMessage = istruct('IncomingMessage', STRUCTS.tagMSG, {

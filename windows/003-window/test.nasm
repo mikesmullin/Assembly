@@ -4,8 +4,6 @@ extern CreateMutexA
 extern LoadImageA
 extern RegisterClassExA
 extern CreateWindowExA
-extern ShowWindow
-extern UpdateWindow
 
 ; main loop
 extern PeekMessageA
@@ -57,8 +55,6 @@ MainWindow_1.hIconSm dq 0 ; HICON
 CreateWindow__atom_name: dq 0
 CreateWindow__hwnd: dq 0
 CreateWindow__title: db "OpenGL Demo",0
-ShowWindow__result: dd 0
-UpdateWindow__result: dd 0
 
 ; struct
 IncomingMessage_1: ; instanceof tagMSG
@@ -180,25 +176,6 @@ mov qword rcx, 768 ; 1st: DWORD dwExStyle = WS_EX_OVERLAPPEDWINDOW
 call CreateWindowExA
 mov qword [CreateWindow__hwnd], rax ; return HWND
 add rsp, 104 ; deallocate shadow space
-call near GetLastError__epilogue_check
-
-call near GetLastError__prologue_reset
-; MS __fastcall x64 ABI
-sub rsp, 40 ; allocate shadow space
-mov dword edx, 1 ; 2nd: int  nCmdShow
-mov qword rcx, [CreateWindow__hwnd] ; 1st: HWND hWnd
-call ShowWindow
-mov dword [ShowWindow__result], eax ; return BOOL
-add rsp, 40 ; deallocate shadow space
-call near GetLastError__epilogue_check
-
-call near GetLastError__prologue_reset
-; MS __fastcall x64 ABI
-sub rsp, 40 ; allocate shadow space
-mov qword rcx, [CreateWindow__hwnd] ; 1st: HWND hWnd
-call UpdateWindow
-mov dword [UpdateWindow__result], eax ; return BOOL
-add rsp, 40 ; deallocate shadow space
 call near GetLastError__epilogue_check
 
 Loop:
