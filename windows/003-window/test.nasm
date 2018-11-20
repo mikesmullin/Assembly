@@ -67,8 +67,6 @@ IncomingMessage_1.pt.x dd 0 ; dword
 IncomingMessage_1.pt.y dd 0 ; dword
 IncomingMessage_1.lPrivate dd 0 ; dword
 
-padding: times 4 db 0 ; not sure why padding is needed here but must find out proper alignment: db 0
-dot: db "."
 PeekMessage_hasMsgs: dd 0
 nWndProc__hWnd: dq 0
 nWndProc__uMsg: dq 0
@@ -196,16 +194,6 @@ cmp dword [PeekMessage_hasMsgs], 0 ; zero messages
 je near Loop
 cmp dword [IncomingMessage_1.message], 0x12 ; WM_QUIT
 jne near ..@Loop__processMessage
-; MS __fastcall x64 ABI
-sub rsp, 48 ; allocate shadow space
-mov dword [rsp + 32], 0 ; 5th: LPOVERLAPPED lpOverlapped
-mov dword r9d, Console__bytesWritten ; 4th: LPDWORD lpNumberOfBytesWritten
-mov dword r8d, 1 ; 3rd: DWORD nNumberOfBytesToWrite
-mov dword edx, dot ; 2nd: LPCVOID lpBuffer
-mov dword ecx, [Console__stdout_nStdHandle] ; 1st: HANDLE hFile
-call WriteFile
-add rsp, 48 ; deallocate shadow space
-
 mov ecx, 0 ; UINT uExitCode
 jmp near Exit
 

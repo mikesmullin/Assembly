@@ -301,10 +301,6 @@ const build = () => {
 	});	
 
 	
-	// TODO: remove these after debugging
-	_var('padding: times 4 db 0 ; not sure why padding is needed here but must find out proper alignment');
-	_var('dot', 'b', '"."');
-	
 	asm('Loop:');
 	const PM_REMOVE = 0x0001;
 	_var('PeekMessage_hasMsgs', 'd');
@@ -324,7 +320,6 @@ const build = () => {
 
 	asm(`cmp dword [${IncomingMessage}.message], ${hex(WM_QUIT)} ; WM_QUIT`);
 	asm('jne near ..@Loop__processMessage');
-	asm(Asm.Console.log('dot', 1));
 	asm(exit(0));
 
 	asm('..@Loop__processMessage:');
