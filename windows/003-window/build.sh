@@ -23,7 +23,7 @@ export PATH="${PATH}:/c/Program Files/PellesC/Bin/"
 # set PATH=%PATH%;C:\Program Files (x86)\Windows Kits\10\Debuggers\x64\
 
 # clean old build out
-rm -f a.exe test.obj
+rm -f test.exe test.obj
 
 # use NASM to compile intermediary binary (*.obj)
 # I use NASM because its better documented and more open/free/modern, likely to survive.

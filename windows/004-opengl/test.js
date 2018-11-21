@@ -1,33 +1,7 @@
 const build = () => {
 	section = 'preprocessor';
 	asm(
-`; BABY'S FIRST WINDOW
-;
-; Will display a blank window which you can min/max/resize, move, and close.
-; The output could be more minimalist if you remove all the debug traces,
-; but I decided to leave them in so future self would have a point of reference.
-;
-; I like the techniques used here because there are no dependency libraries,
-; not even the C Standard lib (ie. MSVCRT). It just uses what Windows gives all
-; programs by default with KERNEL32.DLL.
-;
-; The other thing you'll notice is test.js is effectively a NASM preprocessor
-; alternative using modern JavaScript syntax (and utility libraries like lodash!)
-; It is more efficient and less repetitive. I could have used any higher-level
-; language to achieve this effect, but Node.JS just seemed close at hand.
-; I am happy with the results and will probably continue using the approach,
-; because its teaching me [by comparison] how the assembler works, and helping
-; me look for optimizations to the whole process of writing code at this layer.
-; Not to mention better support for these languages by modern IDEs!
-;
-; Build steps:
-;
-; npm install lodash
-; node test.js # will overwrite test.nasm
-; # update paths in build.sh to match your system and environment
-; sh build.sh # will use NASM + LD to compile test.obj and test.exe
-; cdb test.exe # nice command-line windows debugger
-;\n`);
+`; GOAL: Render OpenGL Context (either blue screen or full-color spinning cube)\n`);
 
 	asm('; build window');
 	asm('extern GetModuleHandleA');
@@ -61,7 +35,7 @@ const build = () => {
 	asm(BLOCKS.INIT);
 
 	// generic reusable uuid any time an api function wants a string identifier
-	_var('Generic__uuid', 'db', '"e44d7545-f9df-418e-bc37-11ad4535d32f",0');
+	_var('Generic__uuid', 'db', '"07b62314-d4fc-4704-96e8-c31eb378d815",0');
 
 	// verify the window is not open twice
 	_var('CreateMutexA__handle', 'dq');
@@ -206,59 +180,17 @@ const build = () => {
 	asm('cmp dword [PeekMessage_hasMsgs], 0 ; zero messages');
 	asm('je near Loop');
 
-	asm(printf(FormatString('debug_trace_4',
-		`"PeekMessageA has messages for CreateWindow__hWnd %1!.16llX!",10`,
-		'CreateWindow__hWnd'), Asm.Console.log));
-
-	// debug trace
-	_var('__trace_array', 'times 8 dq');
-	asm(`mov qword rax, [${IncomingMessage}.hwnd]`);
-	asm('mov qword [__trace_array + 0], rax');
-	asm(`mov dword eax, [${IncomingMessage}.message]`);
-	asm('mov dword [__trace_array + 8], eax');
-	asm(`mov qword rax, [${IncomingMessage}.wParam]`);
-	asm('mov qword [__trace_array + 16], rax');
-	asm(`mov qword rax, [${IncomingMessage}.lParam]`);
-	asm('mov qword [__trace_array + 24], rax');
-	asm(`mov dword eax, [${IncomingMessage}.pt.x]`);
-	asm('mov dword [__trace_array + 32], eax');
-	asm(`mov dword eax, [${IncomingMessage}.pt.y]`);
-	asm('mov dword [__trace_array + 40], eax');
-	asm(`mov dword eax, [${IncomingMessage}.lPrivate]`);
-	asm('mov dword [__trace_array + 48], eax');
-	// NOTICE: every arg must be spaced 64-bits apart, but the formatter will only
-	// read the first 32-bits from each argument. This is a limitation of the
-	// KERNEL32.DLL FormatMessageA procedure, but you can get past it if you 
-	// figure out how to pass the va_list struct. I haven't taken the time but its
-	// discussed in the link below. For my purposes, the first 32-bits is enough.
-	// https://stackoverflow.com/questions/4958384/what-is-the-format-of-the-x86-64-va-list-structure
-	asm(printf(FormatString('PeekMessage_msgIdFormatString',
-		`10,"Message received:",10`+
-		`,"  hwnd: %1!.16llX!",10`+
-		`,"  message: %2!.4llX!",10`+
-		`,"  wParam: %3!.16llX!",10`+
-		`,"  lParam: %4!.16llX!",10`+
-		`,"  time: %5!.16llX!",10`+
-		`,"  pt.x: %6!lu!",10`+
-		`,"  pt.y: %7!lu!",10`+
-		`,"  lPrivate: %8!.8llX!",10`,
-		'__trace_array'), Asm.Console.log));
-
 	asm(`cmp dword [${IncomingMessage}.message], ${hex(WM_QUIT)} ; WM_QUIT`);
 	asm('jne near ..@Loop__processMessage');
-	asm(printf(FormatString('debug_trace_1', `"WM_QUIT received by main Loop.",10`, 0), Asm.Console.log));
-	asm('je near Loop');
-//	asm(exit(0));
+	asm(exit(0));
 
 	asm('..@Loop__processMessage:');
-	asm(printf(FormatString('debug_trace_5', `"TranslateMessage",10`, 0), Asm.Console.log));
 	asm(__ms_64_fastcall_w_error_check({ proc: 'TranslateMessage',
 		args: [
 			{ value: IncomingMessage, size: 'qword', comment: 'LPMSG lpMsg' },
 		],
 	}));
 
-	asm(printf(FormatString('debug_trace_5a', `"DispatchMessageA",10`, 0), Asm.Console.log));
 	asm(__ms_64_fastcall_w_error_check({ proc: 'DispatchMessageA',
 		args: [
 			{ value: IncomingMessage, size: 'qword', comment: 'LPMSG lpMsg' },
@@ -287,8 +219,6 @@ const build = () => {
 	asm('mov qword [nWndProc__wParam], r8');
 	asm('mov qword [nWndProc__lParam], r9');
 
-	//TODO: print every WindProc msg that gets dispatched during average program cycle
-
 	// switch uMsg
 	asm(`cmp rdx, ${hex(WM_ACTIVATE)}`);
 	asm('je near WndProc__WM_Activate');
@@ -296,8 +226,8 @@ const build = () => {
 	asm('je near WndProc__WM_SysCommand');
 	asm(`cmp rdx, ${hex(WM_CLOSE)}`);
 	asm('je near WndProc__WM_Close');
-	// asm(`cmp rdx, ${hex(WM_DESTROY)}`);
-	// asm('je near WndProc__WM_Destroy');
+	asm(`cmp rdx, ${hex(WM_DESTROY)}`);
+	asm('je near WndProc__WM_Destroy');
 	asm(`cmp rdx, ${hex(WM_KEYDOWN)}`);
 	asm('je near WndProc__WM_KeyDown');
 	asm(`cmp rdx, ${hex(WM_KEYUP)}`);
@@ -316,10 +246,7 @@ const build = () => {
 	}));
 	asm('mov qword rax, [nWndProc__return]');
 	asm('ret');
-
 	asm('WndProc__WM_Activate:');
-	// asm(printf(FormatString('debug_trace_6', `"WndProc",10`, 0), Asm.Console.log));
-
 	asm('xor eax, eax');
 	asm('ret');
 	asm('WndProc__WM_SysCommand:');
@@ -333,19 +260,15 @@ const build = () => {
 	asm('xor eax, eax');
 	asm('ret');
 	asm('WndProc__WM_Close:');
-	asm(printf(FormatString('debug_trace_2', `"WM_CLOSE received by WndProc.",10`, 0), Asm.Console.log));
 	asm(__ms_64_fastcall_w_error_check({ proc: 'DestroyWindow', args: [
 		{ value: '[CreateWindow__hWnd]', size: 'qword', comment: 'HWND hWnd' },
 	]}));
-	asm(printf(FormatString('debug_trace_7', `"DestroyWindow sent",10`, 0), Asm.Console.log));
 	asm('xor eax, eax');
 	asm('ret');
 	asm('WndProc__WM_Destroy:');
-	asm(printf(FormatString('debug_trace_3', `"WM_DESTROY received by WndProc.",10`, 0), Asm.Console.log));
 	asm(__ms_64_fastcall_w_error_check({ proc: 'PostQuitMessage', args: [
 		{ value: 0, size: 'dword', comment: 'int nExitCode' },
 	]}));
-	asm(printf(FormatString('debug_trace_8', `"PostQuitMessage sent",10`, 0), Asm.Console.log));
 	asm('xor eax, eax');
 	asm('ret');
 	asm('WndProc__WM_KeyDown:');
@@ -357,8 +280,6 @@ const build = () => {
 	asm('WndProc__WM_Size:');
 	asm('xor eax, eax');
 	asm('ret');
-
-	// asm(exit(0));
 
 	asm(BLOCKS.PROCS);
 };

@@ -164,7 +164,7 @@ const build = () => {
 	const CW_USEDEFAULT    = 0x80000000;
 	// see: https://github.com/tpn/winsdk-10/blob/master/Include/10.0.10240.0/um/WinUser.h#L4292
 	_var('CreateWindow__hWnd', 'dq');
-	_var('CreateWindow__title', 'db', '"OpenGL Demo",0');
+	_var('CreateWindow__title', 'db', '"Window Demo",0');
 	const WIDTH = 640;
 	const HEIGHT = 480;
 	asm(__ms_64_fastcall_w_error_check({ proc: 'CreateWindowExA',

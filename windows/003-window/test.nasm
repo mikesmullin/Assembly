@@ -19,6 +19,7 @@
 ;
 ; Build steps:
 ;
+; npm install lodash
 ; node test.js # will overwrite test.nasm
 ; # update paths in build.sh to match your system and environment
 ; sh build.sh # will use NASM + LD to compile test.obj and test.exe
@@ -80,7 +81,7 @@ MainWindow_1.hIconSm dq 0 ; HICON
 
 CreateWindow__atom_name: dq 0
 CreateWindow__hWnd: dq 0
-CreateWindow__title: db "OpenGL Demo",0
+CreateWindow__title: db "Window Demo",0
 
 ; struct
 IncomingMessage_1: ; instanceof tagMSG
