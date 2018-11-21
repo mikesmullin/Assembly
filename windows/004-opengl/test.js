@@ -509,8 +509,6 @@ const ___english_ordinal = i => {
  * First four params are passed via registers (RCX, RDX, R8, R9), and the remainder on stack (before shadow space)
  * Caller also responsible to pad 'shadow space' of 4 x 64-bit registers (32 bytes) prior to the call,
  * and to unwind the shadow space after the call has returned.
- * 
- * see: https://msdn.microsoft.com/en-us/library/zthk2dkh.aspx
  */
 const __ms_64_fastcall = ({ proc, ret, args=[] }) => {
 	let out = '; MS __fastcall x64 ABI\n';

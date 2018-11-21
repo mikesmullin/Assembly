@@ -13,8 +13,8 @@ and how to make a gl context
 	x LoadCursorA ; define cursor for window (get handle reference back?)
 	; gotta set pixel format of Device Context (DC) before window is created
 	GetDC ; clear. a handle to GDI32 instance needed by ogl to draw
-	PIXELFORMATDESCRIPTOR
 	ChoosePixelFormat ; requirement for opengl to draw in window client space; sets res + color depth
+	  also PIXELFORMATDESCRIPTOR struct
 	SetPixelFormat ; "
 	;ChangeDisplaySettingsA ; set full screen
 	x RegisterClassExW ; register a WNDCLASSA struct for use with CreateWindowExA and others (W=Unicode support)
@@ -24,29 +24,30 @@ and how to make a gl context
 	; build and attach the gl context
 	wglCreateContext ; obvious
 	wglMakeCurrent ; obvious
-	SetForegroundWindow ; obvious
-	SetFocus ; obvious
-	ShowCursor ; obvious
+	;SetForegroundWindow ; obvious
+	;SetFocus ; obvious
+	;ShowCursor ; obvious
 
 	; main loop
-	PeekMessageA ; send/receive pending window messages without blocking (required to prevent window ghosting and send outbound messages, too)
-	TranslateMessage ;
-	DispatchMessageA ;
+	x PeekMessageA ; check for pending inbound window messages (non-blocking) (required to prevent window ghosting and send outbound messages, too)
+	x TranslateMessage ; converts virtual-key ("scan codes") into ASCII character codes, where possible. 
+	                   ; see also; http://kbdedit.com/manual/low_level_vk_list.html
+	x DispatchMessageA ; forward a received Window Message (WM_*) struct to your registered Window Procedure callback
+	x DefWindowProcA ; let windows handle uninteresting window events
 	SwapBuffers ; recommended by Kronos to use the GDI version over the wglSwapBuffers. i guess its a compatibility issue with MSFT
-	DefWindowProcA ; let windows handle uninteresting window events
 
 	; shutdown / cleanup
-	wglDeleteContext ; cleanup obvious
-	ReleaseDC ; cleanup obvious
-	DestroyWindow ; cleanup obvious
-	PostQuitMessage ; initiates graceful shutdown by enqueueing WM_QUIT. typically in response to WM_DESTROY (user clicking window "X") see also SendNotifyMessage, SendMessageTimeout or SendMessageCallback
+	wglDeleteContext ; cleanup, obvious
+	ReleaseDC ; cleanup, obvious
+	;DestroyWindow ; cleanup, obvious
+	;PostQuitMessage ; initiates graceful shutdown by enqueueing WM_QUIT. typically in response to WM_DESTROY (user clicking window "X") see also SendNotifyMessage, SendMessageTimeout or SendMessageCallback
 
 	; error handling
 	x GetLastError
 	x FormatMessage
 
   ; system information
-	GetSystemMetrics
+	GetSystemMetrics ; ie. screen dimensions
 
 and how to define the gl perspective (without glu)
   yes glu is old and an alternative should be sought
@@ -66,11 +67,9 @@ and how to define the gl perspective (without glu)
 
 notes:
 
-so many linkers! ld, cl, golink, link
 - should make my own minimalist linker that reduces/reuses empty/unused space (97B)
 
-64-bit fast call is done like
-https://msdn.microsoft.com/en-us/library/zthk2dkh.aspx
+__fastcall 64 stack example:
 
 ; -56-8  / +0  ret
 ; -56+0  / +8  rcx 1st arg home [empty]
