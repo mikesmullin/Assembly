@@ -1,135 +1,34 @@
-// goal: try to display an empty window?
-
-const fs = require('fs');
-const path = require('path');
-const _ = require('lodash');
-const [,,OUT_FILE] = process.argv;
-let section = 'preprocessor';
-const sections = { preprocessor: '', '.data': '', '.text': '' };
-const _var = (name, size='db', val=0) =>
-	sections['.data'] += `${name}: ${size} ${val}\n`;
-const asm = s => {
-	sections[section] += s + "\n";
-};
-const out = () => {
-	fs.writeFileSync(
-		path.join(__dirname, OUT_FILE||'test.nasm'),
-		_.map(sections, (text, section) =>
-			('preprocessor' !== section ? `section ${section} align=16\n` : '')+
-			`${text}\n`).join(''));
-};
-const BLOCKS = { INIT: '', PROCS: '' };
-let _initializers = [];
-const onready = cb => _initializers.push(cb);
-const init = () => _initializers.forEach(cb=>cb());
-
-const TYPES = {};
-const STRUCTS = {};
-
-TYPES.BYTE = { name: 'byte', size: 1 };
-TYPES.WORD = { name: 'word', size: 2 };
-TYPES.DWORD = { name: 'dword', size: 4 };
-TYPES.QWORD = { name: 'qword', size: 8 };
-
-TYPES.UINT = { name: 'UINT', size: 4 };
-TYPES.WNDPROC = { name: 'WNDPROC', size: 8 };
-TYPES.int = { name: 'int', size: 4 };
-TYPES.HINSTANCE = { name: 'HINSTANCE', size: 8 };
-TYPES.HICON = { name: 'HICON', size: 8 };
-TYPES.HCURSOR = { name: 'HCURSOR', size: 8 };
-TYPES.HBRUSH = { name: 'HBRUSH', size: 8 };
-TYPES.LPCSTR = { name: 'LPCSTR', size: 8 };
-
-TYPES.HWND = { name: 'HWND', size: 8 };
-// TYPES.POINT = { name: 'POINT', size: 8 };
-TYPES.WPARAM = { name: 'WPARAM', size: 8 };
-TYPES.LPARAM = { name: 'LPARAM', size: 8 };
-
-STRUCTS.tagWNDCLASSEXA = { name: 'tagWNDCLASSEXA', data: {
-	cbSize: { type: TYPES.UINT, default: ()=>
-		sizeof(STRUCTS.tagWNDCLASSEXA) },
-	style: { type: TYPES.UINT },
-	lpfnWndProc: { type: TYPES.WNDPROC },
-	cbClsExtra: { type: TYPES.int, default: 0 },
-	cbWndExtra: { type: TYPES.int, default: 0 },
-	hInstance: { type: TYPES.HINSTANCE },
-	hIcon: { type: TYPES.HICON, default: 0 },
-	hCursor: { type: TYPES.HCURSOR },
-	// TODO: change background value to 0 when OpenGL Context is ready
-	hbrBackground: { type: TYPES.HBRUSH, default: 5 },
-	lpszMenuName: { type: TYPES.LPCSTR, default: 0 },
-	lpszClassName: { type: TYPES.LPCSTR },
-	hIconSm: { type: TYPES.HICON, default: 0 },
-}};
-
-STRUCTS.tagMSG = { name: 'tagMSG', data: {
-	hwnd: { type: TYPES.HWND, default: 0 },
-  message: { type: TYPES.UINT, default: 0 },
-  wParam: { type: TYPES.WPARAM, default: 0 },
-  lParam: { type: TYPES.LPARAM, default: 0 },
-  time: { type: TYPES.DWORD, default: 0 },
-	'pt.x': { type: TYPES.DWORD, default: 0 },
-	'pt.y': { type: TYPES.DWORD, default: 0 },
-  lPrivate: { type: TYPES.DWORD, default: 0 },
-}};
-
-const instance_counter = {};
-const istruct = (name, struct, values) => {
-	if (null == instance_counter[struct.name]) instance_counter[struct.name] = 0;
-	instance_counter[struct.name]++;
-	const label = `${name}_${instance_counter[struct.name]}`;
-	sections['.data'] +=
-		`\n; struct\n`+
-		`${label}: ; instanceof ${struct.name}\n`;
-	for (const k of Object.keys(struct.data)) {
-		let possibleValue = _.get(values, k, _.get(struct.data, [k, 'default']));
-		if ('function' === typeof possibleValue) possibleValue = possibleValue();
-		if (null == possibleValue) throw new Error(`struct ${struct.name} ${label}.${k} is missing a required value.`);
-		let value, comment;
-		if ('object' === typeof possibleValue) {
-			({ value, comment } = possibleValue);
-		} else value = possibleValue;
-		sections['.data'] +=
-			`${label}.${k} `+
-			`d${{1:'b', 2:'w', 4:'d', 8:'q'}[struct.data[k].type.size]} `+
-			`${value} `+
-			`; ${struct.data[k].type.name}${comment ? ' '+comment : ''}\n`;
-	}
-	sections['.data'] += `\n`;
-	return label;
-};
-const sizeof = struct => {
-	return _.map(struct.data, field =>
-		field.type.size
-	).reduce((sum,n)=>
-		sum+=n,0);
-};
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
 const build = () => {
 	section = 'preprocessor';
+	asm(
+`; BABY'S FIRST WINDOW
+;
+; Will display a blank window which you can min/max/resize, move, and close.
+; The output could be more minimalist if you remove all the debug traces,
+; but I decided to leave them in so future self would have a point of reference.
+;
+; I like the techniques used here because there are no dependency libraries,
+; not even the C Standard lib (ie. MSVCRT). It just uses what Windows gives all
+; programs by default with KERNEL32.DLL.
+;
+; The other thing you'll notice is test.js is effectively a NASM preprocessor
+; alternative using modern JavaScript syntax (and utility libraries like lodash!)
+; It is more efficient and less repetitive. I could have used any higher-level
+; language to achieve this effect, but Node.JS just seemed close at hand.
+; I am happy with the results and will probably continue using the approach,
+; because its teaching me [by comparison] how the assembler works, and helping
+; me look for optimizations to the whole process of writing code at this layer.
+; Not to mention better support for these languages by modern IDEs!
+;
+; Build steps:
+;
+; npm install lodash
+; node test.js # will overwrite test.nasm
+; # update paths in build.sh to match your system and environment
+; sh build.sh # will use NASM + LD to compile test.obj and test.exe
+; cdb test.exe # nice command-line windows debugger
+;\n`);
+
 	asm('; build window');
 	asm('extern GetModuleHandleA');
 	asm('extern CreateMutexA');
@@ -157,7 +56,7 @@ const build = () => {
 
 	section = '.text';
 	asm('global main');
-	asm('main:\n');
+	asm('main:');
 	
 	asm(BLOCKS.INIT);
 
@@ -327,8 +226,11 @@ const build = () => {
 	asm('mov dword [__trace_array + 40], eax');
 	asm(`mov dword eax, [${IncomingMessage}.lPrivate]`);
 	asm('mov dword [__trace_array + 48], eax');
-	// NOTICE: bytes are truncated to 32-bits by the FormatString function;
-	// this can be fixed if i figure out how to pass the va_list struct
+	// NOTICE: every arg must be spaced 64-bits apart, but the formatter will only
+	// read the first 32-bits from each argument. This is a limitation of the
+	// KERNEL32.DLL FormatMessageA procedure, but you can get past it if you 
+	// figure out how to pass the va_list struct. I haven't taken the time but its
+	// discussed in the link below. For my purposes, the first 32-bits is enough.
 	// https://stackoverflow.com/questions/4958384/what-is-the-format-of-the-x86-64-va-list-structure
 	asm(printf(FormatString('PeekMessage_msgIdFormatString',
 		`10,"Message received:",10`+
@@ -486,10 +388,112 @@ const build = () => {
 
 
 
+// supporting preprocessor-esque macro functions
 
+const fs = require('fs');
+const path = require('path');
+const _ = require('lodash');
+const [,,OUT_FILE] = process.argv;
+let section = 'preprocessor';
+const sections = { preprocessor: '', '.data': '', '.text': '' };
+const _var = (name, size='db', val=0) =>
+	sections['.data'] += `${name}: ${size} ${val}\n`;
+const asm = s => {
+	sections[section] += s + "\n";
+};
+const out = () => {
+	fs.writeFileSync(
+		path.join(__dirname, OUT_FILE||'test.nasm'),
+		_.map(sections, (text, section) =>
+			('preprocessor' !== section ? `section ${section} align=16\n` : '')+
+			`${text}\n`).join(''));
+};
+const BLOCKS = { INIT: '', PROCS: '' };
+let _initializers = [];
+const onready = cb => _initializers.push(cb);
+const init = () => _initializers.forEach(cb=>cb());
 
+const TYPES = {};
+const STRUCTS = {};
 
+TYPES.BYTE = { name: 'byte', size: 1 };
+TYPES.WORD = { name: 'word', size: 2 };
+TYPES.DWORD = { name: 'dword', size: 4 };
+TYPES.QWORD = { name: 'qword', size: 8 };
 
+TYPES.UINT = { name: 'UINT', size: 4 };
+TYPES.WNDPROC = { name: 'WNDPROC', size: 8 };
+TYPES.int = { name: 'int', size: 4 };
+TYPES.HINSTANCE = { name: 'HINSTANCE', size: 8 };
+TYPES.HICON = { name: 'HICON', size: 8 };
+TYPES.HCURSOR = { name: 'HCURSOR', size: 8 };
+TYPES.HBRUSH = { name: 'HBRUSH', size: 8 };
+TYPES.LPCSTR = { name: 'LPCSTR', size: 8 };
+
+TYPES.HWND = { name: 'HWND', size: 8 };
+// TYPES.POINT = { name: 'POINT', size: 8 };
+TYPES.WPARAM = { name: 'WPARAM', size: 8 };
+TYPES.LPARAM = { name: 'LPARAM', size: 8 };
+
+STRUCTS.tagWNDCLASSEXA = { name: 'tagWNDCLASSEXA', data: {
+	cbSize: { type: TYPES.UINT, default: ()=>
+		sizeof(STRUCTS.tagWNDCLASSEXA) },
+	style: { type: TYPES.UINT },
+	lpfnWndProc: { type: TYPES.WNDPROC },
+	cbClsExtra: { type: TYPES.int, default: 0 },
+	cbWndExtra: { type: TYPES.int, default: 0 },
+	hInstance: { type: TYPES.HINSTANCE },
+	hIcon: { type: TYPES.HICON, default: 0 },
+	hCursor: { type: TYPES.HCURSOR },
+	// TODO: change background value to 0 when OpenGL Context is ready
+	hbrBackground: { type: TYPES.HBRUSH, default: 5 },
+	lpszMenuName: { type: TYPES.LPCSTR, default: 0 },
+	lpszClassName: { type: TYPES.LPCSTR },
+	hIconSm: { type: TYPES.HICON, default: 0 },
+}};
+
+STRUCTS.tagMSG = { name: 'tagMSG', data: {
+	hwnd: { type: TYPES.HWND, default: 0 },
+  message: { type: TYPES.UINT, default: 0 },
+  wParam: { type: TYPES.WPARAM, default: 0 },
+  lParam: { type: TYPES.LPARAM, default: 0 },
+  time: { type: TYPES.DWORD, default: 0 },
+	'pt.x': { type: TYPES.DWORD, default: 0 },
+	'pt.y': { type: TYPES.DWORD, default: 0 },
+  lPrivate: { type: TYPES.DWORD, default: 0 },
+}};
+
+const instance_counter = {};
+const istruct = (name, struct, values) => {
+	if (null == instance_counter[struct.name]) instance_counter[struct.name] = 0;
+	instance_counter[struct.name]++;
+	const label = `${name}_${instance_counter[struct.name]}`;
+	sections['.data'] +=
+		`\n; struct\n`+
+		`${label}: ; instanceof ${struct.name}\n`;
+	for (const k of Object.keys(struct.data)) {
+		let possibleValue = _.get(values, k, _.get(struct.data, [k, 'default']));
+		if ('function' === typeof possibleValue) possibleValue = possibleValue();
+		if (null == possibleValue) throw new Error(`struct ${struct.name} ${label}.${k} is missing a required value.`);
+		let value, comment;
+		if ('object' === typeof possibleValue) {
+			({ value, comment } = possibleValue);
+		} else value = possibleValue;
+		sections['.data'] +=
+			`${label}.${k} `+
+			`d${{1:'b', 2:'w', 4:'d', 8:'q'}[struct.data[k].type.size]} `+
+			`${value} `+
+			`; ${struct.data[k].type.name}${comment ? ' '+comment : ''}\n`;
+	}
+	sections['.data'] += `\n`;
+	return label;
+};
+const sizeof = struct => {
+	return _.map(struct.data, field =>
+		field.type.size
+	).reduce((sum,n)=>
+		sum+=n,0);
+};
 
 
 const hex = n => '0x'+ n.toString(16);
@@ -629,6 +633,7 @@ const LANG_USER_DEFAULT__SUBLANG_DEFAULT = 0x0400;
 const FormatMessage__tmpReturnBufferLength = 256;
 _var('FormatMessage__tmpReturnBuffer', `times ${FormatMessage__tmpReturnBufferLength} db`);
 _var('FormatMessage__tmpReturnBufferLength', `dd`);
+// see also: https://docs.microsoft.com/en-us/windows/desktop/api/winbase/nf-winbase-formatmessagea#remarks
 const FormatMessage = (dwFlags, label, dwMessageId, dwLanguageId, args) => {
 	return __ms_64_fastcall({ proc: 'FormatMessageA',
 		args: [

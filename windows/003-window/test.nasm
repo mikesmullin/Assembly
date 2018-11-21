@@ -1,3 +1,30 @@
+; BABY'S FIRST WINDOW
+;
+; Will display a blank window which you can min/max/resize, move, and close.
+; The output could be more minimalist if you remove all the debug traces,
+; but I decided to leave them in so future self would have a point of reference.
+;
+; I like the techniques used here because there are no dependency libraries,
+; not even the C Standard lib (ie. MSVCRT). It just uses what Windows gives all
+; programs by default with KERNEL32.DLL.
+;
+; The other thing you'll notice is test.js is effectively a NASM preprocessor
+; alternative using modern JavaScript syntax (and utility libraries like lodash!)
+; It is more efficient and less repetitive. I could have used any higher-level
+; language to achieve this effect, but Node.JS just seemed close at hand.
+; I am happy with the results and will probably continue using the approach,
+; because its teaching me [by comparison] how the assembler works, and helping
+; me look for optimizations to the whole process of writing code at this layer.
+; Not to mention better support for these languages by modern IDEs!
+;
+; Build steps:
+;
+; node test.js # will overwrite test.nasm
+; # update paths in build.sh to match your system and environment
+; sh build.sh # will use NASM + LD to compile test.obj and test.exe
+; cdb test.exe # nice command-line windows debugger
+;
+
 ; build window
 extern GetModuleHandleA
 extern CreateMutexA
@@ -86,7 +113,6 @@ debug_trace_8: db "PostQuitMessage sent",10,0
 section .text align=16
 global main
 main:
-
 
 ; get pointers to stdout/stderr pipes
 call near GetLastError__prologue_reset
