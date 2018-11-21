@@ -88,3 +88,11 @@ __fastcall 64 stack example:
 ; -56+32 / +40     5th arg
 ; -56+40 / +48     6th arg
 ; -56+48 / +56     UNKNOWN SPACER (NOT RETURN VAL)
+
+
+
+add this to my list of resources in gist:
+- Agner Fog's book (and site)  
+  https://www.agner.org/optimize/optimizing_assembly.pdf
+- Microsoft __fastcall 64 ABI calling convention  
+  https://msdn.microsoft.com/en-us/library/ms235286.aspx

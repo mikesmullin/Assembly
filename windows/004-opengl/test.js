@@ -196,7 +196,7 @@ const build = () => {
 	// see: https://docs.microsoft.com/en-us/windows/desktop/api/wingdi/ns-wingdi-tagpixelformatdescriptor
 	const PixelFormat = istruct('PixelFormat', STRUCTS.PIXELFORMATDESCRIPTOR, {
 		dwFlags: {
-			value: PFD_DRAW_TO_WINDOW | PFD_SUPPORT_OPENGL | PFD_DOUBLEBUFFER,
+			value: hex(PFD_DRAW_TO_WINDOW | PFD_SUPPORT_OPENGL | PFD_DOUBLEBUFFER),
 			comment: '= PFD_DRAW_TO_WINDOW | PFD_SUPPORT_OPENGL | PFD_DOUBLEBUFFER',
 		},
 		iPixelType: { value: PFD_TYPE_RGBA, comment: '= PFD_TYPE_RGBA' },
@@ -235,6 +235,7 @@ const build = () => {
 		'wglMakeCurrent',
 		'glClearColor',
 		'glClear',
+		'glGetError',
 	));
 
 	_var('wglCreateContext__ctx', 'dq');
@@ -265,12 +266,14 @@ const build = () => {
 	// asm('push qword 0');
 	// asm('push qword 0');
 	// TODO: make a fastcall fn that also calls glGetError
-	asm(__ms_64_fastcall({ proc: '[glClearColor]',
+	_var('onef', 'dq', '0x3f800000');
+	_var('zerof', 'dq', '0');
+	asm(__ms_64_fastcall/*_w_glGetError*/({ proc: '[glClearColor]',
 		args: [
-			{ value: 1, size: 'dword', comment: 'GLclampf alpha' },
-			{ value: 0, size: 'dword', comment: 'GLclampf blue' },
-			{ value: 1, size: 'dword', comment: 'GLclampf green' },
-			{ value: 1, size: 'dword', comment: 'GLclampf red' },
+			{ float: 'onef', size: 'qword', comment: 'GLclampf alpha' },
+			{ float: 'zerof', size: 'qword', comment: 'GLclampf blue' },
+			{ float: 'onef', size: 'qword', comment: 'GLclampf green' },
+			{ float: 'onef', size: 'qword', comment: 'GLclampf red' },
 		],
 	}));
 
@@ -347,7 +350,7 @@ const build = () => {
 
 	const GL_COLOR_BUFFER_BIT = 0x00004000;
 	// see: https://www.khronos.org/registry/OpenGL/api/GLES2/gl2.h
-	asm(__ms_64_fastcall({ proc: '[glClear]',
+	asm(__ms_64_fastcall_w_glGetError({ proc: '[glClear]',
 		args: [
 			{ value: GL_COLOR_BUFFER_BIT, size: 'dword', comment: 'GLbitfield mask' },
 		],
@@ -622,6 +625,7 @@ const ___english_ordinal = i => {
 	return s + (1===n && i !== 11 ? 'st' : 2===n && i !== 12 ? 'nd' : 3===n && i !== 13 ? 'rd' : 'th');
 };
 
+_var('__tmp_float', 'dq');
 /**
  * Windows 64-bit uses Microsoft fastcall
  * First four params are passed via registers (RCX, RDX, R8, R9), and the remainder on stack (before shadow space)
@@ -638,18 +642,34 @@ const __ms_64_fastcall = ({ proc, ret, args=[] }) => {
 	);
 	out += `sub rsp, ${shadow} ; allocate shadow space\n`;
 
-	const registers = [
-		{ dword: 'ecx', qword: 'rcx' },
-		{ dword: 'edx', qword: 'rdx' },
-		{ dword: 'r8d', qword: 'r8'  },
-		{ dword: 'r9d', qword: 'r9'  },
-	];
-
 	for (let i=args.length-1; i>-1; i--) {
 		const arg = args[i];
 		const pos = `${___english_ordinal(i+1)}: `;
-		if (i>3) out += `mov ${arg.size} [rsp + ${i * 8}], ${arg.value} ; ${pos}${arg.comment||''}\n`;
-		else out += `mov ${arg.size} ${registers[i][arg.size]}, ${arg.value} ; ${pos}${arg.comment||''}\n`;
+		let registers;
+		if (null != arg.float) {
+			registers = [
+				{ qword: 'xmm0' },
+				{ qword: 'xmm1' },
+				{ qword: 'xmm2' },
+				{ qword: 'xmm3' },
+			];
+			if (i<=3) { // NOTICE: my fn does not support more than 4 float args right now
+				out +=
+					`mov qword [__tmp_float], ${arg.float}\n` +
+					`addsd ${registers[i][arg.size]}, [__tmp_float] ; ${pos}${arg.comment||''}\n`;
+			}
+		}
+		else {
+			registers = [
+				{ dword: 'ecx', qword: 'rcx' },
+				{ dword: 'edx', qword: 'rdx' },
+				{ dword: 'r8d', qword: 'r8'  },
+				{ dword: 'r9d', qword: 'r9'  },
+			];
+			const mov = `mov ${arg.size}`;
+			if (i>3) out += `${mov} [rsp + ${i * 8}], ${arg.value} ; ${pos}${arg.comment||''}\n`;
+			else out += `${mov} ${registers[i][arg.size]}, ${arg.value} ; ${pos}${arg.comment||''}\n`;
+		}
 	}
 	
 	out += `    call ${proc}\n`;
@@ -692,6 +712,27 @@ const __ms_64_fastcall_w_error_check = o => {
 	out += `call GetLastError__prologue_reset\n`;
 	out += __ms_64_fastcall(o);
 	out += `call GetLastError__epilogue_check\n`;
+	return out;
+};
+_var('glGetError__code', 'dd');
+onready(()=>{
+	BLOCKS.PROCS += `\n`+
+		'GetLastError__epilogue_glGetError:\n' +
+		__ms_64_fastcall({ proc: '[glGetError]',
+			ret: { value: '[glGetError__code]', size: 'dword', comment: 'GLenum' },
+		}) +
+		'cmp eax, 0\n'+
+		'jne ..@glError\n' +
+		'ret\n\n' +
+
+		'..@glError:\n' +
+		printf(FormatString('glGetError__str', `"glError %1!.8llX!",10`, 'glGetError__code'), Asm.Console.log) +
+		exit('[glGetError__code]');
+});
+const __ms_64_fastcall_w_glGetError = o => {
+	let out = '';
+	out += __ms_64_fastcall(o);
+	out += `call GetLastError__epilogue_glGetError\n`;
 	return out;
 };
 

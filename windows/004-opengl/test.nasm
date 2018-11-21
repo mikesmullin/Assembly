@@ -33,11 +33,14 @@ extern GetStdHandle
 extern WriteFile
 
 section .data align=16
+__tmp_float: dq 0
 GetLastError__errCode: dd 0
+glGetError__code: dd 0
 Console__stderr_nStdHandle: dd 0
 Console__stdout_nStdHandle: dd 0
 FormatMessage__tmpReturnBuffer: times 256 db 0
 FormatMessage__tmpReturnBufferLength: dd 0
+glGetError__str: db "glError %1!.8llX!",10,0
 Console__bytesWritten: dd 0
 Generic__uuid: db "07b62314-d4fc-4704-96e8-c31eb378d815",0
 CreateMutexA__handle: dq 0
@@ -69,7 +72,7 @@ GetDC__hDC: dq 0
 PixelFormat_1: ; instanceof PIXELFORMATDESCRIPTOR
 PixelFormat_1.nSize dw 40 ; word sizeof(struct)
 PixelFormat_1.nVersion dw 1 ; word (magic constant)
-PixelFormat_1.dwFlags dd 37 ; dword = PFD_DRAW_TO_WINDOW | PFD_SUPPORT_OPENGL | PFD_DOUBLEBUFFER
+PixelFormat_1.dwFlags dd 0x25 ; dword = PFD_DRAW_TO_WINDOW | PFD_SUPPORT_OPENGL | PFD_DOUBLEBUFFER
 PixelFormat_1.iPixelType db 0 ; byte = PFD_TYPE_RGBA
 PixelFormat_1.cColorBits db 24 ; byte (24-bit color depth)
 PixelFormat_1.cRedBits db 0 ; byte (not used)
@@ -106,8 +109,12 @@ glClearColor: dq 0
 GetProcAddress__glClearColor: db "glClearColor",0
 glClear: dq 0
 GetProcAddress__glClear: db "glClear",0
+glGetError: dq 0
+GetProcAddress__glGetError: db "glGetError",0
 wglCreateContext__ctx: dq 0
 wglMakeCurrent__success: dd 0
+onef: dq 0x3f800000
+zerof: dq 0
 
 ; struct
 IncomingMessage_1: ; instanceof tagMSG
@@ -303,6 +310,15 @@ mov qword rcx, [LoadLibraryA__opengl32_hModule] ; 1st: HMODULE hModule
 mov qword [glClear], rax ; return FARPROC
 add rsp, 40 ; deallocate shadow space
 call GetLastError__epilogue_check
+call GetLastError__prologue_reset
+; MS __fastcall x64 ABI
+sub rsp, 40 ; allocate shadow space
+mov dword edx, GetProcAddress__glGetError ; 2nd: LPCSTR lpProcName
+mov qword rcx, [LoadLibraryA__opengl32_hModule] ; 1st: HMODULE hModule
+    call GetProcAddress
+mov qword [glGetError], rax ; return FARPROC
+add rsp, 40 ; deallocate shadow space
+call GetLastError__epilogue_check
 
 call GetLastError__prologue_reset
 ; MS __fastcall x64 ABI
@@ -325,10 +341,14 @@ call GetLastError__epilogue_check
 
 ; MS __fastcall x64 ABI
 sub rsp, 40 ; allocate shadow space
-mov dword r9d, 1 ; 4th: GLclampf red
-mov dword r8d, 1 ; 3rd: GLclampf green
-mov dword edx, 0 ; 2nd: GLclampf blue
-mov dword ecx, 1 ; 1st: GLclampf alpha
+mov qword [__tmp_float], onef
+addsd xmm3, [__tmp_float] ; 4th: GLclampf red
+mov qword [__tmp_float], onef
+addsd xmm2, [__tmp_float] ; 3rd: GLclampf green
+mov qword [__tmp_float], zerof
+addsd xmm1, [__tmp_float] ; 2nd: GLclampf blue
+mov qword [__tmp_float], onef
+addsd xmm0, [__tmp_float] ; 1st: GLclampf alpha
     call [glClearColor]
 add rsp, 40 ; deallocate shadow space
 
@@ -376,6 +396,7 @@ sub rsp, 40 ; allocate shadow space
 mov dword ecx, 16384 ; 1st: GLbitfield mask
     call [glClear]
 add rsp, 40 ; deallocate shadow space
+call GetLastError__epilogue_glGetError
 
 call GetLastError__prologue_reset
 ; MS __fastcall x64 ABI
@@ -510,6 +531,42 @@ mov dword ecx, [Console__stdout_nStdHandle] ; 1st: HANDLE hFile
 add rsp, 48 ; deallocate shadow space
 
 mov ecx, [GetLastError__errCode] ; UINT uExitCode
+call Exit
+
+GetLastError__epilogue_glGetError:
+; MS __fastcall x64 ABI
+sub rsp, 40 ; allocate shadow space
+    call [glGetError]
+mov dword [glGetError__code], eax ; return GLenum
+add rsp, 40 ; deallocate shadow space
+cmp eax, 0
+jne ..@glError
+ret
+
+..@glError:
+; MS __fastcall x64 ABI
+sub rsp, 64 ; allocate shadow space
+mov qword [rsp + 48], glGetError__code ; 7th: va_list *Arguments
+mov qword [rsp + 40], 256 ; 6th: DWORD nSize
+mov qword [rsp + 32], FormatMessage__tmpReturnBuffer ; 5th: LPSTR lpBuffer
+mov dword r9d, 0x0 ; 4th: DWORD dwLanguageId
+mov dword r8d, 0 ; 3rd: DWORD dwMessageId
+mov dword edx, glGetError__str ; 2nd: LPCVOID lpSource
+mov dword ecx, 0x2400 ; 1st: DWORD dwFlags
+    call FormatMessageA
+mov dword [FormatMessage__tmpReturnBufferLength], eax ; return DWORD TCHARs written
+add rsp, 64 ; deallocate shadow space
+
+; MS __fastcall x64 ABI
+sub rsp, 48 ; allocate shadow space
+mov dword [rsp + 32], 0 ; 5th: LPOVERLAPPED lpOverlapped
+mov dword r9d, Console__bytesWritten ; 4th: LPDWORD lpNumberOfBytesWritten
+mov dword r8d, [FormatMessage__tmpReturnBufferLength] ; 3rd: DWORD nNumberOfBytesToWrite
+mov dword edx, FormatMessage__tmpReturnBuffer ; 2nd: LPCVOID lpBuffer
+mov dword ecx, [Console__stdout_nStdHandle] ; 1st: HANDLE hFile
+    call WriteFile
+add rsp, 48 ; deallocate shadow space
+mov ecx, [glGetError__code] ; UINT uExitCode
 call Exit
 
 Exit:
