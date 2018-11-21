@@ -341,14 +341,10 @@ call GetLastError__epilogue_check
 
 ; MS __fastcall x64 ABI
 sub rsp, 40 ; allocate shadow space
-mov qword [__tmp_float], onef
-addsd xmm3, [__tmp_float] ; 4th: GLclampf red
-mov qword [__tmp_float], onef
-addsd xmm2, [__tmp_float] ; 3rd: GLclampf green
-mov qword [__tmp_float], zerof
-addsd xmm1, [__tmp_float] ; 2nd: GLclampf blue
-mov qword [__tmp_float], onef
-addsd xmm0, [__tmp_float] ; 1st: GLclampf alpha
+xorps xmm0,xmm0
+xorps xmm1,xmm1
+xorps xmm2,xmm2
+xorps xmm3,xmm3
     call [glClearColor]
 add rsp, 40 ; deallocate shadow space
 
@@ -396,7 +392,6 @@ sub rsp, 40 ; allocate shadow space
 mov dword ecx, 16384 ; 1st: GLbitfield mask
     call [glClear]
 add rsp, 40 ; deallocate shadow space
-call GetLastError__epilogue_glGetError
 
 call GetLastError__prologue_reset
 ; MS __fastcall x64 ABI

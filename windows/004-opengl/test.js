@@ -350,7 +350,7 @@ const build = () => {
 
 	const GL_COLOR_BUFFER_BIT = 0x00004000;
 	// see: https://www.khronos.org/registry/OpenGL/api/GLES2/gl2.h
-	asm(__ms_64_fastcall_w_glGetError({ proc: '[glClear]',
+	asm(__ms_64_fastcall/*_w_glGetError*/({ proc: '[glClear]',
 		args: [
 			{ value: GL_COLOR_BUFFER_BIT, size: 'dword', comment: 'GLbitfield mask' },
 		],
