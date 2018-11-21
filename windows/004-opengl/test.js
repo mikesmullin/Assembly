@@ -1,3 +1,5 @@
+// TODO: could make it so i don't check for GetLastError unless a proc returns 0
+
 const build = () => {
 	section = 'preprocessor';
 	asm(
@@ -9,6 +11,11 @@ const build = () => {
 	asm('extern LoadImageA');
 	asm('extern RegisterClassExA');
 	asm('extern CreateWindowExA');
+
+	asm('extern LoadLibraryA');
+	asm('extern GetDC');
+	asm('extern ChoosePixelFormat');
+	asm('extern SetPixelFormat');
 
 	asm('\n; main loop');
 	asm('extern PeekMessageA');
@@ -27,6 +34,7 @@ const build = () => {
 	asm('extern FormatMessageA');
 	asm('extern GetStdHandle');
 	asm('extern WriteFile');
+	asm('extern DebugBreakProcess');
 
 	section = '.text';
 	asm('global main');
@@ -160,6 +168,113 @@ const build = () => {
 		],
 		ret: { value: '[CreateWindow__hWnd]', size: 'qword', comment: 'HWND' },
 	}));
+
+	asm(__debugger('GetModuleHandleA__hModule'));
+
+	// TODO: if full screen:
+		// ChangeDisplaySettings
+		// ShowCursor
+	
+	_var('GetDC__hDC', 'dq');
+	asm(__ms_64_fastcall_w_error_check({ proc: 'GetDC',
+		args: [
+			{ value: '[CreateWindow__hWnd]', size: 'qword', comment: 'HWND hWnd' }
+		],
+		ret: { value: '[GetDC__hDC]', size: 'qword', comment: 'HDC' },
+	}));
+
+	// pixel format constant values were hard to find
+	// i found no official source, only second-hand sources:
+	// see: http://www.bvbcode.com/code/wmex83ko-286062
+	// see: http://programarts.com/cfree_en/wingdi_h.html
+	// see: https://java-native-access.github.io/jna/4.2.0/constant-values.html#com.sun.jna.platform.win32.WinGDI.PFD_SUPPORT_OPENGL
+	const PFD_DRAW_TO_WINDOW = 0x00000004;
+	const PFD_SUPPORT_OPENGL = 0x00000020;
+	const PFD_DOUBLEBUFFER = 0x00000001;
+	const PFD_TYPE_RGBA = 0;
+	const PFD_MAIN_PLANE = 0;
+	// see: https://docs.microsoft.com/en-us/windows/desktop/api/wingdi/ns-wingdi-tagpixelformatdescriptor
+	const PixelFormat = istruct('PixelFormat', STRUCTS.PIXELFORMATDESCRIPTOR, {
+		dwFlags: {
+			value: PFD_DRAW_TO_WINDOW | PFD_SUPPORT_OPENGL | PFD_DOUBLEBUFFER,
+			comment: '= PFD_DRAW_TO_WINDOW | PFD_SUPPORT_OPENGL | PFD_DOUBLEBUFFER',
+		},
+		iPixelType: { value: PFD_TYPE_RGBA, comment: '= PFD_TYPE_RGBA' },
+		// TODO: need to probably query the screen for this (color-depth)
+		cColorBits: { value: 24, comment: '(24-bit color depth)' },
+		cAlphaBits: { value: 0, comment: '(no alpha buffer)' },
+		cAccumBits: { value: 0, comment: '(no accumulation buffer)' },
+		cDepthBits: { value: 32, comment: '(32-bit z-buffer)' },
+		cStencilBits: { value: 0, comment: '(no stencil buffer)' },
+		cAuxBuffers: { value: 0, comment: '(no auxiliary buffer)' },
+		iLayerType: { value: PFD_MAIN_PLANE, comment: '= PFD_MAIN_PLANE' },
+	});
+
+	_var('ChoosePixelFormat__format', 'dd');
+	asm(__ms_64_fastcall_w_error_check({ proc: 'ChoosePixelFormat',
+		args: [
+			{ value: '[GetDC__hDC]', size: 'qword', comment: 'HDC hdc' },
+			{ value: PixelFormat, size: 'qword', comment: 'PIXELFORMATDESCRIPTOR *ppfd' },
+		],
+		ret: { value: '[ChoosePixelFormat__format]', size: 'dword', comment: 'int' },
+	}));
+
+	_var('SetPixelFormat__success', 'dd');
+	asm(__ms_64_fastcall_w_error_check({ proc: 'SetPixelFormat',
+		args: [
+			{ value: '[GetDC__hDC]', size: 'qword', comment: 'HDC hdc' },
+			{ value: '[ChoosePixelFormat__format]', size: 'dword', comment: 'int format' },
+			{ value: PixelFormat, size: 'qword', comment: 'PIXELFORMATDESCRIPTOR *ppfd' },
+		],
+		ret: { value: '[SetPixelFormat__success]', size: 'dword', comment: 'BOOL' },
+	}));
+
+	// dynamically import opengl lib
+	_var('LoadLibraryA__opengl32', 'db', '"opengl32.dll",0');
+	_var('LoadLibraryA__opengl32_hModule', 'dq');
+	asm(__ms_64_fastcall_w_error_check({ proc: 'LoadLibraryA',
+		args: [
+			{ value: 'LoadLibraryA__opengl32', size: 'qword', comment: 'LPCSTR lpLibFileName' },
+		],
+		ret: { value: '[LoadLibraryA__opengl32_hModule]', size: 'qword', comment: 'HMODULE' },
+	}));
+
+	asm(__debugger('GetModuleHandleA__hModule'));
+
+	// wglCreateContext
+	// wglMakeCurrent
+
+	// glShadeModel
+	// glClearColor
+	// glClearDepth
+	// glEnable
+	// glDepthFunc
+	// glHint
+
+	// on resize:
+	// glViewport
+	// glMatrixMode
+	// glLoadIdentity
+	// gluPerspective
+	// glMatrixMode
+	// glLoadIdentity
+	
+	// on draw loop:
+	// glClear
+	// glLoadIdentity
+	// glEnd
+
+	// on shutdown:
+	// if fullscreen:
+		// ChangeDisplaySettings
+		// ShowCursor
+	// wglMakeCurrent
+	// wglDeleteContext
+	// ReleaseDC
+	// DestroyWindow
+
+
+
 
 	const IncomingMessage = istruct('IncomingMessage', STRUCTS.tagMSG, {});	
 
@@ -366,8 +481,7 @@ STRUCTS.tagWNDCLASSEXA = { name: 'tagWNDCLASSEXA', data: {
 	hInstance: { type: TYPES.HINSTANCE },
 	hIcon: { type: TYPES.HICON, default: 0 },
 	hCursor: { type: TYPES.HCURSOR },
-	// TODO: change background value to 0 when OpenGL Context is ready
-	hbrBackground: { type: TYPES.HBRUSH, default: 5 },
+	hbrBackground: { type: TYPES.HBRUSH, default: 0 }, // 0 is required for OpenGL Context
 	lpszMenuName: { type: TYPES.LPCSTR, default: 0 },
 	lpszClassName: { type: TYPES.LPCSTR },
 	hIconSm: { type: TYPES.HICON, default: 0 },
@@ -382,6 +496,36 @@ STRUCTS.tagMSG = { name: 'tagMSG', data: {
 	'pt.x': { type: TYPES.DWORD, default: 0 },
 	'pt.y': { type: TYPES.DWORD, default: 0 },
   lPrivate: { type: TYPES.DWORD, default: 0 },
+}};
+
+STRUCTS.PIXELFORMATDESCRIPTOR = { name: 'PIXELFORMATDESCRIPTOR', data: {
+  nSize: { type: TYPES.WORD, default: ()=>
+		({ value: sizeof(STRUCTS.PIXELFORMATDESCRIPTOR), comment: 'sizeof(struct)' }) },
+  nVersion: { type: TYPES.WORD, default: { value: 1, comment: '(magic constant)' }},
+  dwFlags: { type: TYPES.DWORD, default: 0 },
+  iPixelType: { type: TYPES.BYTE, default: 0 },
+  cColorBits: { type: TYPES.BYTE, default: 0 },
+  cRedBits: { type: TYPES.BYTE, default: { value: 0, comment: '(not used)' } },
+  cRedShift: { type: TYPES.BYTE, default: { value: 0, comment: '(not used)' } },
+  cGreenBits: { type: TYPES.BYTE, default: { value: 0, comment: '(not used)' } },
+  cGreenShift: { type: TYPES.BYTE, default: { value: 0, comment: '(not used)' } },
+  cBlueBits: { type: TYPES.BYTE, default: { value: 0, comment: '(not used)' } },
+  cBlueShift: { type: TYPES.BYTE, default: { value: 0, comment: '(not used)' } },
+  cAlphaBits: { type: TYPES.BYTE, default: 0 },
+  cAlphaShift: { type: TYPES.BYTE, default: { value: 0, comment: '(not used)' } },
+  cAccumBits: { type: TYPES.BYTE, default: 0 },
+  cAccumRedBits: { type: TYPES.BYTE, default: { value: 0, comment: '(not used)' } },
+  cAccumGreenBits: { type: TYPES.BYTE, default: { value: 0, comment: '(not used)' } },
+  cAccumBlueBits: { type: TYPES.BYTE, default: { value: 0, comment: '(not used)' } },
+  cAccumAlphaBits: { type: TYPES.BYTE, default: { value: 0, comment: '(not used)' } },
+  cDepthBits: { type: TYPES.BYTE, default: 0 },
+  cStencilBits: { type: TYPES.BYTE, default: 0 },
+  cAuxBuffers: { type: TYPES.BYTE, default: 0 },
+  iLayerType: { type: TYPES.BYTE, default: 0 },
+  bReserved: { type: TYPES.BYTE, default: { value: 0, comment: '(not used)' } },
+  dwLayerMask: { type: TYPES.DWORD, default: { value: 0, comment: '(not used)' } },
+  dwVisibleMask: { type: TYPES.DWORD, default: { value: 0, comment: '(not used)' } },
+  dwDamageMask: { type: TYPES.DWORD, default: { value: 0, comment: '(not used)' } },
 }};
 
 const instance_counter = {};
@@ -492,20 +636,26 @@ onready(()=>{
 });
 const __ms_64_fastcall_w_error_check = o => {
 	let out = '';
-	out += `call near GetLastError__prologue_reset\n`;
+	out += `call GetLastError__prologue_reset\n`;
 	out += __ms_64_fastcall(o);
-	out += `call near GetLastError__epilogue_check\n`;
+	out += `call GetLastError__epilogue_check\n`;
 	return out;
 };
 
 onready(()=>{
 	BLOCKS.PROCS += `\n`+
 		'Exit:\n' +
-		__ms_64_fastcall({ proc: 'ExitProcess' });
+		__ms_64_fastcall({ proc: 'ExitProcess' }) +'\n'+
+		// the following _should_ be unnecessary if correctly exits
+		'ret' +'\n'+
+		'jmp near Exit';
 });
 const exit = (code=0) =>
 	`mov ecx, ${code} ; UINT uExitCode\n` +
-	'jmp near Exit\n';
+	// important to call vs. jmp so it appears in stack traces.
+	// especially since exiting is a common response
+	// to an error which you might want to debug!
+	'call Exit\n'; 
 
 
 
@@ -592,6 +742,17 @@ const printf = (formatAsm, outputCb) => {
 	return formatAsm +'\n'+
 		outputCb('FormatMessage__tmpReturnBuffer', '[FormatMessage__tmpReturnBufferLength]');
 };
+
+_var('DebugBreakProcess__success', 'dd');
+const __debugger = hModule => {
+	return __ms_64_fastcall({ proc: 'DebugBreakProcess',
+		args: [
+			{ value: hModule, size: 'qword', comment: 'HANDLE Process' },
+		],
+		ret: { value: '[DebugBreakProcess__success]', size: 'dword', comment: 'BOOL' },
+	});
+};
+
 
 init();
 build();

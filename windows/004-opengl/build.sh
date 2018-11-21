@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-set -x
+#set -x
 
 # NOTICE: You'll need to update all paths below to match your system.
 
@@ -27,10 +27,17 @@ export PATH="${PATH}:/c/Program Files/PellesC/Bin/"
 rm -f test.exe test.obj
 
 # use NASM to compile intermediary binary (*.obj)
-"C:\Users\Mike\AppData\Local\bin\NASM\nasm.exe" -f win64 "F:\Desktop\tmp\winasm-2\Assembly\windows\004-opengl\test.nasm" -l "F:\Desktop\tmp\winasm-2\Assembly\windows\004-opengl\test.lst" -o "F:\Desktop\tmp\winasm-2\Assembly\windows\004-opengl\test.obj"
+"C:\Users\Mike\AppData\Local\bin\NASM\nasm.exe" \
+	-f win64 "F:\Desktop\tmp\winasm-2\Assembly\windows\004-opengl\test.nasm" \
+	-l "F:\Desktop\tmp\winasm-2\Assembly\windows\004-opengl\test.lst" \
+	-o "F:\Desktop\tmp\winasm-2\Assembly\windows\004-opengl\test.obj"
 
 # statically link binary and external libraries into final (PE) executable (*.exe)
-ld -s test.obj "C:\Program Files\PellesC\Lib\Win64\kernel32.lib" "C:\Program Files\PellesC\Lib\Win64\user32.lib" -o "F:\Desktop\tmp\winasm-2\Assembly\windows\004-opengl\test.exe"
+ld -s test.obj \
+	"C:\Program Files\PellesC\Lib\Win64\kernel32.lib" \
+	"C:\Program Files\PellesC\Lib\Win64\user32.lib" \
+	"C:\Program Files\PellesC\Lib\Win64\gdi32.lib" \
+	-o "F:\Desktop\tmp\winasm-2\Assembly\windows\004-opengl\test.exe"
 
 # list output file size, in bytes
 ls -l test.exe

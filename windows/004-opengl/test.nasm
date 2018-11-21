@@ -6,6 +6,10 @@ extern CreateMutexA
 extern LoadImageA
 extern RegisterClassExA
 extern CreateWindowExA
+extern LoadLibraryA
+extern GetDC
+extern ChoosePixelFormat
+extern SetPixelFormat
 
 ; main loop
 extern PeekMessageA
@@ -24,6 +28,7 @@ extern GetLastError
 extern FormatMessageA
 extern GetStdHandle
 extern WriteFile
+extern DebugBreakProcess
 
 section .data align=16
 GetLastError__errCode: dd 0
@@ -31,6 +36,7 @@ Console__stderr_nStdHandle: dd 0
 Console__stdout_nStdHandle: dd 0
 FormatMessage__tmpReturnBuffer: times 256 db 0
 FormatMessage__tmpReturnBufferLength: dd 0
+DebugBreakProcess__success: dd 0
 Console__bytesWritten: dd 0
 Generic__uuid: db "07b62314-d4fc-4704-96e8-c31eb378d815",0
 CreateMutexA__handle: dq 0
@@ -48,7 +54,7 @@ MainWindow_1.cbWndExtra dd 0 ; int
 MainWindow_1.hInstance dq GetModuleHandleA__hModule ; HINSTANCE
 MainWindow_1.hIcon dq CreateWindow__icon ; HICON
 MainWindow_1.hCursor dq CreateWindow__cursor ; HCURSOR
-MainWindow_1.hbrBackground dq 5 ; HBRUSH
+MainWindow_1.hbrBackground dq 0 ; HBRUSH
 MainWindow_1.lpszMenuName dq 0 ; LPCSTR
 MainWindow_1.lpszClassName dq Generic__uuid ; LPCSTR
 MainWindow_1.hIconSm dq 0 ; HICON
@@ -56,6 +62,41 @@ MainWindow_1.hIconSm dq 0 ; HICON
 CreateWindow__atom_name: dq 0
 CreateWindow__hWnd: dq 0
 CreateWindow__title: db "OpenGL Demo",0
+GetDC__hDC: dq 0
+
+; struct
+PixelFormat_1: ; instanceof PIXELFORMATDESCRIPTOR
+PixelFormat_1.nSize dw 40 ; word sizeof(struct)
+PixelFormat_1.nVersion dw 1 ; word (magic constant)
+PixelFormat_1.dwFlags dd 37 ; dword = PFD_DRAW_TO_WINDOW | PFD_SUPPORT_OPENGL | PFD_DOUBLEBUFFER
+PixelFormat_1.iPixelType db 0 ; byte = PFD_TYPE_RGBA
+PixelFormat_1.cColorBits db 24 ; byte (24-bit color depth)
+PixelFormat_1.cRedBits db 0 ; byte (not used)
+PixelFormat_1.cRedShift db 0 ; byte (not used)
+PixelFormat_1.cGreenBits db 0 ; byte (not used)
+PixelFormat_1.cGreenShift db 0 ; byte (not used)
+PixelFormat_1.cBlueBits db 0 ; byte (not used)
+PixelFormat_1.cBlueShift db 0 ; byte (not used)
+PixelFormat_1.cAlphaBits db 0 ; byte (no alpha buffer)
+PixelFormat_1.cAlphaShift db 0 ; byte (not used)
+PixelFormat_1.cAccumBits db 0 ; byte (no accumulation buffer)
+PixelFormat_1.cAccumRedBits db 0 ; byte (not used)
+PixelFormat_1.cAccumGreenBits db 0 ; byte (not used)
+PixelFormat_1.cAccumBlueBits db 0 ; byte (not used)
+PixelFormat_1.cAccumAlphaBits db 0 ; byte (not used)
+PixelFormat_1.cDepthBits db 32 ; byte (32-bit z-buffer)
+PixelFormat_1.cStencilBits db 0 ; byte (no stencil buffer)
+PixelFormat_1.cAuxBuffers db 0 ; byte (no auxiliary buffer)
+PixelFormat_1.iLayerType db 0 ; byte = PFD_MAIN_PLANE
+PixelFormat_1.bReserved db 0 ; byte (not used)
+PixelFormat_1.dwLayerMask dd 0 ; dword (not used)
+PixelFormat_1.dwVisibleMask dd 0 ; dword (not used)
+PixelFormat_1.dwDamageMask dd 0 ; dword (not used)
+
+ChoosePixelFormat__format: dd 0
+SetPixelFormat__success: dd 0
+LoadLibraryA__opengl32: db "opengl32.dll",0
+LoadLibraryA__opengl32_hModule: dq 0
 
 ; struct
 IncomingMessage_1: ; instanceof tagMSG
@@ -80,26 +121,26 @@ global main
 main:
 
 ; get pointers to stdout/stderr pipes
-call near GetLastError__prologue_reset
+call GetLastError__prologue_reset
 ; MS __fastcall x64 ABI
 sub rsp, 40 ; allocate shadow space
 mov dword ecx, -12 ; 1st: DWORD nStdHandle = STD_ERROR_HANDLE
     call GetStdHandle
 mov dword [Console__stderr_nStdHandle], eax ; return 
 add rsp, 40 ; deallocate shadow space
-call near GetLastError__epilogue_check
+call GetLastError__epilogue_check
 
-call near GetLastError__prologue_reset
+call GetLastError__prologue_reset
 ; MS __fastcall x64 ABI
 sub rsp, 40 ; allocate shadow space
 mov dword ecx, -11 ; 1st: DWORD nStdHandle = STD_OUTPUT_HANDLE
     call GetStdHandle
 mov dword [Console__stdout_nStdHandle], eax ; return 
 add rsp, 40 ; deallocate shadow space
-call near GetLastError__epilogue_check
+call GetLastError__epilogue_check
 
 
-call near GetLastError__prologue_reset
+call GetLastError__prologue_reset
 ; MS __fastcall x64 ABI
 sub rsp, 40 ; allocate shadow space
 mov dword r8d, Generic__uuid ; 3rd: LPCSTR lpName
@@ -108,18 +149,18 @@ mov dword ecx, 0 ; 1st: LPSECURITY_ATTRIBUTES lpMutexAttributes
     call CreateMutexA
 mov qword [CreateMutexA__handle], rax ; return HANDLE
 add rsp, 40 ; deallocate shadow space
-call near GetLastError__epilogue_check
+call GetLastError__epilogue_check
 
-call near GetLastError__prologue_reset
+call GetLastError__prologue_reset
 ; MS __fastcall x64 ABI
 sub rsp, 40 ; allocate shadow space
 mov dword ecx, 0 ; 1st: LPCSTR lpModuleName
     call GetModuleHandleA
 mov qword [GetModuleHandleA__hModule], rax ; return HMODULE *phModule
 add rsp, 40 ; deallocate shadow space
-call near GetLastError__epilogue_check
+call GetLastError__epilogue_check
 
-call near GetLastError__prologue_reset
+call GetLastError__prologue_reset
 ; MS __fastcall x64 ABI
 sub rsp, 56 ; allocate shadow space
 mov dword [rsp + 40], 0x8040 ; 6th: UINT fuLoad = LR_SHARED | LR_DEFAULTSIZE
@@ -131,9 +172,9 @@ mov dword ecx, 0 ; 1st: HINSTANCE hInst
     call LoadImageA
 mov qword [CreateWindow__icon], rax ; return HANDLE
 add rsp, 56 ; deallocate shadow space
-call near GetLastError__epilogue_check
+call GetLastError__epilogue_check
 
-call near GetLastError__prologue_reset
+call GetLastError__prologue_reset
 ; MS __fastcall x64 ABI
 sub rsp, 56 ; allocate shadow space
 mov dword [rsp + 40], 0x8040 ; 6th: UINT fuLoad = LR_SHARED | LR_DEFAULTSIZE
@@ -145,18 +186,18 @@ mov dword ecx, 0 ; 1st: HINSTANCE hInst
     call LoadImageA
 mov qword [CreateWindow__cursor], rax ; return HANDLE
 add rsp, 56 ; deallocate shadow space
-call near GetLastError__epilogue_check
+call GetLastError__epilogue_check
 
-call near GetLastError__prologue_reset
+call GetLastError__prologue_reset
 ; MS __fastcall x64 ABI
 sub rsp, 40 ; allocate shadow space
 mov qword rcx, MainWindow_1 ; 1st: WNDCLASSEXA *Arg1
     call RegisterClassExA
 mov qword [CreateWindow__atom_name], rax ; return 
 add rsp, 40 ; deallocate shadow space
-call near GetLastError__epilogue_check
+call GetLastError__epilogue_check
 
-call near GetLastError__prologue_reset
+call GetLastError__prologue_reset
 ; MS __fastcall x64 ABI
 sub rsp, 104 ; allocate shadow space
 mov qword [rsp + 88], 0 ; 12th: LPVOID lpParam
@@ -174,10 +215,63 @@ mov qword rcx, 768 ; 1st: DWORD dwExStyle = WS_EX_OVERLAPPEDWINDOW
     call CreateWindowExA
 mov qword [CreateWindow__hWnd], rax ; return HWND
 add rsp, 104 ; deallocate shadow space
-call near GetLastError__epilogue_check
+call GetLastError__epilogue_check
+
+; MS __fastcall x64 ABI
+sub rsp, 40 ; allocate shadow space
+mov qword rcx, GetModuleHandleA__hModule ; 1st: HANDLE Process
+    call DebugBreakProcess
+mov dword [DebugBreakProcess__success], eax ; return BOOL
+add rsp, 40 ; deallocate shadow space
+
+call GetLastError__prologue_reset
+; MS __fastcall x64 ABI
+sub rsp, 40 ; allocate shadow space
+mov qword rcx, [CreateWindow__hWnd] ; 1st: HWND hWnd
+    call GetDC
+mov qword [GetDC__hDC], rax ; return HDC
+add rsp, 40 ; deallocate shadow space
+call GetLastError__epilogue_check
+
+call GetLastError__prologue_reset
+; MS __fastcall x64 ABI
+sub rsp, 40 ; allocate shadow space
+mov qword rdx, PixelFormat_1 ; 2nd: PIXELFORMATDESCRIPTOR *ppfd
+mov qword rcx, [GetDC__hDC] ; 1st: HDC hdc
+    call ChoosePixelFormat
+mov dword [ChoosePixelFormat__format], eax ; return int
+add rsp, 40 ; deallocate shadow space
+call GetLastError__epilogue_check
+
+call GetLastError__prologue_reset
+; MS __fastcall x64 ABI
+sub rsp, 40 ; allocate shadow space
+mov qword r8, PixelFormat_1 ; 3rd: PIXELFORMATDESCRIPTOR *ppfd
+mov dword edx, [ChoosePixelFormat__format] ; 2nd: int format
+mov qword rcx, [GetDC__hDC] ; 1st: HDC hdc
+    call SetPixelFormat
+mov dword [SetPixelFormat__success], eax ; return BOOL
+add rsp, 40 ; deallocate shadow space
+call GetLastError__epilogue_check
+
+call GetLastError__prologue_reset
+; MS __fastcall x64 ABI
+sub rsp, 40 ; allocate shadow space
+mov qword rcx, LoadLibraryA__opengl32 ; 1st: LPCSTR lpLibFileName
+    call LoadLibraryA
+mov qword [LoadLibraryA__opengl32_hModule], rax ; return HMODULE
+add rsp, 40 ; deallocate shadow space
+call GetLastError__epilogue_check
+
+; MS __fastcall x64 ABI
+sub rsp, 40 ; allocate shadow space
+mov qword rcx, GetModuleHandleA__hModule ; 1st: HANDLE Process
+    call DebugBreakProcess
+mov dword [DebugBreakProcess__success], eax ; return BOOL
+add rsp, 40 ; deallocate shadow space
 
 Loop:
-call near GetLastError__prologue_reset
+call GetLastError__prologue_reset
 ; MS __fastcall x64 ABI
 sub rsp, 48 ; allocate shadow space
 mov dword [rsp + 32], 1 ; 5th: UINT wRemoveMsg = PM_REMOVE
@@ -188,31 +282,31 @@ mov qword rcx, IncomingMessage_1 ; 1st: LPMSG lpMsg
     call PeekMessageA
 mov dword [PeekMessage_hasMsgs], eax ; return BOOL
 add rsp, 48 ; deallocate shadow space
-call near GetLastError__epilogue_check
+call GetLastError__epilogue_check
 
 cmp dword [PeekMessage_hasMsgs], 0 ; zero messages
 je near Loop
 cmp dword [IncomingMessage_1.message], 0x12 ; WM_QUIT
 jne near ..@Loop__processMessage
 mov ecx, 0 ; UINT uExitCode
-jmp near Exit
+call Exit
 
 ..@Loop__processMessage:
-call near GetLastError__prologue_reset
+call GetLastError__prologue_reset
 ; MS __fastcall x64 ABI
 sub rsp, 40 ; allocate shadow space
 mov qword rcx, IncomingMessage_1 ; 1st: LPMSG lpMsg
     call TranslateMessage
 add rsp, 40 ; deallocate shadow space
-call near GetLastError__epilogue_check
+call GetLastError__epilogue_check
 
-call near GetLastError__prologue_reset
+call GetLastError__prologue_reset
 ; MS __fastcall x64 ABI
 sub rsp, 40 ; allocate shadow space
 mov qword rcx, IncomingMessage_1 ; 1st: LPMSG lpMsg
     call DispatchMessageA
 add rsp, 40 ; deallocate shadow space
-call near GetLastError__epilogue_check
+call GetLastError__epilogue_check
 
 jmp near Loop
 
@@ -236,7 +330,7 @@ je near WndProc__WM_KeyUp
 cmp rdx, 0x5
 je near WndProc__WM_Size
 ..@WndProc__default:
-call near GetLastError__prologue_reset
+call GetLastError__prologue_reset
 ; MS __fastcall x64 ABI
 sub rsp, 40 ; allocate shadow space
 mov qword r9, [nWndProc__lParam] ; 4th: 
@@ -246,7 +340,7 @@ mov qword rcx, [nWndProc__hWnd] ; 1st:
     call DefWindowProcA
 mov qword [nWndProc__return], rax ; return 
 add rsp, 40 ; deallocate shadow space
-call near GetLastError__epilogue_check
+call GetLastError__epilogue_check
 
 mov qword rax, [nWndProc__return]
 ret
@@ -264,24 +358,24 @@ jmp near ..@WndProc__default
 xor eax, eax
 ret
 WndProc__WM_Close:
-call near GetLastError__prologue_reset
+call GetLastError__prologue_reset
 ; MS __fastcall x64 ABI
 sub rsp, 40 ; allocate shadow space
 mov qword rcx, [CreateWindow__hWnd] ; 1st: HWND hWnd
     call DestroyWindow
 add rsp, 40 ; deallocate shadow space
-call near GetLastError__epilogue_check
+call GetLastError__epilogue_check
 
 xor eax, eax
 ret
 WndProc__WM_Destroy:
-call near GetLastError__prologue_reset
+call GetLastError__prologue_reset
 ; MS __fastcall x64 ABI
 sub rsp, 40 ; allocate shadow space
 mov dword ecx, 0 ; 1st: int nExitCode
     call PostQuitMessage
 add rsp, 40 ; deallocate shadow space
-call near GetLastError__epilogue_check
+call GetLastError__epilogue_check
 
 xor eax, eax
 ret
@@ -338,7 +432,7 @@ mov dword ecx, [Console__stdout_nStdHandle] ; 1st: HANDLE hFile
 add rsp, 48 ; deallocate shadow space
 
 mov ecx, [GetLastError__errCode] ; UINT uExitCode
-jmp near Exit
+call Exit
 
 Exit:
 ; MS __fastcall x64 ABI
@@ -346,4 +440,6 @@ sub rsp, 40 ; allocate shadow space
     call ExitProcess
 add rsp, 40 ; deallocate shadow space
 
+ret
+jmp near Exit
 

@@ -1,3 +1,12 @@
+try displaying a blue ogl context window
+try experimenting with different window configurations (see what all the window types do)
+try solving that annoying "Invalid window handle." error when loop is properly constructed
+
+
+
+
+
+
 read about how to make a window
   https://docs.microsoft.com/en-us/windows/desktop/winmsg/windowing
   http://nehe.gamedev.net/tutorial/creating_an_opengl_window_(win32)/13001/
