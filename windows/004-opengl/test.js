@@ -12,16 +12,19 @@ const build = () => {
 	asm('extern RegisterClassExA');
 	asm('extern CreateWindowExA');
 
-	asm('extern LoadLibraryA');
+	asm('; build opengl context');
 	asm('extern GetDC');
 	asm('extern ChoosePixelFormat');
 	asm('extern SetPixelFormat');
+	asm('extern LoadLibraryA');
+	asm('extern GetProcAddress');
 
 	asm('\n; main loop');
 	asm('extern PeekMessageA');
 	asm('extern TranslateMessage');
 	asm('extern DispatchMessageA');
 	asm('extern DefWindowProcA');
+	asm('extern SwapBuffers');
 	
 	asm(`\n; shutdown/cleanup`);
 	asm('extern DestroyWindow');
@@ -34,7 +37,6 @@ const build = () => {
 	asm('extern FormatMessageA');
 	asm('extern GetStdHandle');
 	asm('extern WriteFile');
-	asm('extern DebugBreakProcess');
 
 	section = '.text';
 	asm('global main');
@@ -169,8 +171,6 @@ const build = () => {
 		ret: { value: '[CreateWindow__hWnd]', size: 'qword', comment: 'HWND' },
 	}));
 
-	asm(__debugger('GetModuleHandleA__hModule'));
-
 	// TODO: if full screen:
 		// ChangeDisplaySettings
 		// ShowCursor
@@ -230,19 +230,49 @@ const build = () => {
 	}));
 
 	// dynamically import opengl lib
-	_var('LoadLibraryA__opengl32', 'db', '"opengl32.dll",0');
-	_var('LoadLibraryA__opengl32_hModule', 'dq');
-	asm(__ms_64_fastcall_w_error_check({ proc: 'LoadLibraryA',
+	asm(__import('opengl32',
+		'wglCreateContext',
+		'wglMakeCurrent',
+		'glClearColor',
+		'glClear',
+	));
+
+	_var('wglCreateContext__ctx', 'dq');
+	asm(__ms_64_fastcall_w_error_check({ proc: '[wglCreateContext]',
 		args: [
-			{ value: 'LoadLibraryA__opengl32', size: 'qword', comment: 'LPCSTR lpLibFileName' },
+			{ value: '[GetDC__hDC]', size: 'qword', comment: 'HDC Arg1' },
 		],
-		ret: { value: '[LoadLibraryA__opengl32_hModule]', size: 'qword', comment: 'HMODULE' },
+		ret: { value: '[wglCreateContext__ctx]', size: 'qword', comment: 'HGLRC' },
 	}));
 
-	asm(__debugger('GetModuleHandleA__hModule'));
-
-	// wglCreateContext
-	// wglMakeCurrent
+	_var('wglMakeCurrent__success', 'dd');
+	asm(__ms_64_fastcall_w_error_check({ proc: '[wglMakeCurrent]',
+		args: [
+			{ value: '[GetDC__hDC]', size: 'qword', comment: 'HDC' },
+			{ value: '[wglCreateContext__ctx]', size: 'qword', comment: 'HGLRC' },
+		],
+		ret: { value: '[wglMakeCurrent__success]', size: 'dword', comment: 'BOOL' },
+	}));
+	
+	// asm('xor rax, rax');
+	// asm('xor rbx, rbx');
+	// asm('xor rcx, rcx');
+	// asm('xor rdx, rdx');
+	// asm('xor r8, r8');
+	// asm('xor r9, r9');
+	// asm('push qword 0');
+	// asm('push qword 0');
+	// asm('push qword 0');
+	// asm('push qword 0');
+	// TODO: make a fastcall fn that also calls glGetError
+	asm(__ms_64_fastcall({ proc: '[glClearColor]',
+		args: [
+			{ value: 1, size: 'dword', comment: 'GLclampf alpha' },
+			{ value: 0, size: 'dword', comment: 'GLclampf blue' },
+			{ value: 1, size: 'dword', comment: 'GLclampf green' },
+			{ value: 1, size: 'dword', comment: 'GLclampf red' },
+		],
+	}));
 
 	// glShadeModel
 	// glClearColor
@@ -271,6 +301,7 @@ const build = () => {
 	// wglMakeCurrent
 	// wglDeleteContext
 	// ReleaseDC
+	// FreeLibrary opengl
 	// DestroyWindow
 
 
@@ -293,7 +324,7 @@ const build = () => {
 	}));
 	const WM_QUIT = 0x0012;
 	asm('cmp dword [PeekMessage_hasMsgs], 0 ; zero messages');
-	asm('je near Loop');
+	asm('je near ..@Render');
 
 	asm(`cmp dword [${IncomingMessage}.message], ${hex(WM_QUIT)} ; WM_QUIT`);
 	asm('jne near ..@Loop__processMessage');
@@ -311,8 +342,30 @@ const build = () => {
 			{ value: IncomingMessage, size: 'qword', comment: 'LPMSG lpMsg' },
 		],
 	}));
+
+	asm('..@Render:');
+
+	const GL_COLOR_BUFFER_BIT = 0x00004000;
+	// see: https://www.khronos.org/registry/OpenGL/api/GLES2/gl2.h
+	asm(__ms_64_fastcall({ proc: '[glClear]',
+		args: [
+			{ value: GL_COLOR_BUFFER_BIT, size: 'dword', comment: 'GLbitfield mask' },
+		],
+	}));
+
+	_var('SwapBuffers__success', 'dd');
+	asm(__ms_64_fastcall_w_error_check({ proc: 'SwapBuffers',
+		args: [
+			{ value: '[GetDC__hDC]', size: 'qword', comment: 'HDC Arg1' },
+		],
+		ret: { value: '[SwapBuffers__success]', size: 'dword', comment: 'BOOL' },
+	}));
 	asm('jmp near Loop');
 
+
+
+
+	
 	const WM_ACTIVATE = 0x0006;
 	const WM_SYSCOMMAND = 0x0112;
 	const WM_CLOSE = 0x0010;
@@ -743,14 +796,28 @@ const printf = (formatAsm, outputCb) => {
 		outputCb('FormatMessage__tmpReturnBuffer', '[FormatMessage__tmpReturnBufferLength]');
 };
 
-_var('DebugBreakProcess__success', 'dd');
-const __debugger = hModule => {
-	return __ms_64_fastcall({ proc: 'DebugBreakProcess',
+const __import = (library, ...procs) => {
+	_var(`LoadLibraryA__${library}`, 'db', `"${library}.dll",0`) 
+	_var(`LoadLibraryA__${library}_hModule`, 'dq');
+	let out = '';
+	out += __ms_64_fastcall_w_error_check({ proc: 'LoadLibraryA',
 		args: [
-			{ value: hModule, size: 'qword', comment: 'HANDLE Process' },
+			{ value: `LoadLibraryA__${library}`, size: 'qword', comment: 'LPCSTR lpLibFileName' },
 		],
-		ret: { value: '[DebugBreakProcess__success]', size: 'dword', comment: 'BOOL' },
+		ret: { value: `[LoadLibraryA__${library}_hModule]`, size: 'qword', comment: 'HMODULE' },
 	});
+	for (const proc of procs) {
+		_var(proc, 'dq');
+		_var(`GetProcAddress__${proc}`, 'db', `"${proc}",0`);
+		out += __ms_64_fastcall_w_error_check({ proc: 'GetProcAddress',
+			args: [
+				{ value: `[LoadLibraryA__${library}_hModule]`, size: 'qword', comment: 'HMODULE hModule' },
+				{ value: `GetProcAddress__${proc}`, size: 'dword', comment: 'LPCSTR lpProcName' },
+			],
+			ret: { value: `[${proc}]`, size: 'qword', comment: 'FARPROC' },
+		});
+	}
+	return out;
 };
 
 

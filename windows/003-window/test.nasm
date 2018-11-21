@@ -50,6 +50,7 @@ extern GetLastError
 extern FormatMessageA
 extern GetStdHandle
 extern WriteFile
+extern DebugBreakProcess
 
 section .data align=16
 GetLastError__errCode: dd 0
@@ -57,6 +58,7 @@ Console__stderr_nStdHandle: dd 0
 Console__stdout_nStdHandle: dd 0
 FormatMessage__tmpReturnBuffer: times 256 db 0
 FormatMessage__tmpReturnBufferLength: dd 0
+DebugBreakProcess__success: dd 0
 Console__bytesWritten: dd 0
 Generic__uuid: db "e44d7545-f9df-418e-bc37-11ad4535d32f",0
 CreateMutexA__handle: dq 0

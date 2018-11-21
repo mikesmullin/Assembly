@@ -53,6 +53,7 @@ const build = () => {
 	asm('extern FormatMessageA');
 	asm('extern GetStdHandle');
 	asm('extern WriteFile');
+	asm('extern DebugBreakProcess');
 
 	section = '.text';
 	asm('global main');
@@ -673,6 +674,17 @@ const printf = (formatAsm, outputCb) => {
 	return formatAsm +'\n'+
 		outputCb('FormatMessage__tmpReturnBuffer', '[FormatMessage__tmpReturnBufferLength]');
 };
+
+_var('DebugBreakProcess__success', 'dd');
+const __debugger = hModule => {
+	return __ms_64_fastcall({ proc: 'DebugBreakProcess',
+		args: [
+			{ value: hModule, size: 'qword', comment: 'HANDLE Process' },
+		],
+		ret: { value: '[DebugBreakProcess__success]', size: 'dword', comment: 'BOOL' },
+	});
+};
+
 
 init();
 build();

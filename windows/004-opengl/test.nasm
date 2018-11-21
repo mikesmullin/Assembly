@@ -6,16 +6,19 @@ extern CreateMutexA
 extern LoadImageA
 extern RegisterClassExA
 extern CreateWindowExA
-extern LoadLibraryA
+; build opengl context
 extern GetDC
 extern ChoosePixelFormat
 extern SetPixelFormat
+extern LoadLibraryA
+extern GetProcAddress
 
 ; main loop
 extern PeekMessageA
 extern TranslateMessage
 extern DispatchMessageA
 extern DefWindowProcA
+extern SwapBuffers
 
 ; shutdown/cleanup
 extern DestroyWindow
@@ -28,7 +31,6 @@ extern GetLastError
 extern FormatMessageA
 extern GetStdHandle
 extern WriteFile
-extern DebugBreakProcess
 
 section .data align=16
 GetLastError__errCode: dd 0
@@ -36,7 +38,6 @@ Console__stderr_nStdHandle: dd 0
 Console__stdout_nStdHandle: dd 0
 FormatMessage__tmpReturnBuffer: times 256 db 0
 FormatMessage__tmpReturnBufferLength: dd 0
-DebugBreakProcess__success: dd 0
 Console__bytesWritten: dd 0
 Generic__uuid: db "07b62314-d4fc-4704-96e8-c31eb378d815",0
 CreateMutexA__handle: dq 0
@@ -97,6 +98,16 @@ ChoosePixelFormat__format: dd 0
 SetPixelFormat__success: dd 0
 LoadLibraryA__opengl32: db "opengl32.dll",0
 LoadLibraryA__opengl32_hModule: dq 0
+wglCreateContext: dq 0
+GetProcAddress__wglCreateContext: db "wglCreateContext",0
+wglMakeCurrent: dq 0
+GetProcAddress__wglMakeCurrent: db "wglMakeCurrent",0
+glClearColor: dq 0
+GetProcAddress__glClearColor: db "glClearColor",0
+glClear: dq 0
+GetProcAddress__glClear: db "glClear",0
+wglCreateContext__ctx: dq 0
+wglMakeCurrent__success: dd 0
 
 ; struct
 IncomingMessage_1: ; instanceof tagMSG
@@ -110,6 +121,7 @@ IncomingMessage_1.pt.y dd 0 ; dword
 IncomingMessage_1.lPrivate dd 0 ; dword
 
 PeekMessage_hasMsgs: dd 0
+SwapBuffers__success: dd 0
 nWndProc__hWnd: dq 0
 nWndProc__uMsg: dq 0
 nWndProc__wParam: dq 0
@@ -217,13 +229,6 @@ mov qword [CreateWindow__hWnd], rax ; return HWND
 add rsp, 104 ; deallocate shadow space
 call GetLastError__epilogue_check
 
-; MS __fastcall x64 ABI
-sub rsp, 40 ; allocate shadow space
-mov qword rcx, GetModuleHandleA__hModule ; 1st: HANDLE Process
-    call DebugBreakProcess
-mov dword [DebugBreakProcess__success], eax ; return BOOL
-add rsp, 40 ; deallocate shadow space
-
 call GetLastError__prologue_reset
 ; MS __fastcall x64 ABI
 sub rsp, 40 ; allocate shadow space
@@ -262,12 +267,69 @@ mov qword rcx, LoadLibraryA__opengl32 ; 1st: LPCSTR lpLibFileName
 mov qword [LoadLibraryA__opengl32_hModule], rax ; return HMODULE
 add rsp, 40 ; deallocate shadow space
 call GetLastError__epilogue_check
+call GetLastError__prologue_reset
+; MS __fastcall x64 ABI
+sub rsp, 40 ; allocate shadow space
+mov dword edx, GetProcAddress__wglCreateContext ; 2nd: LPCSTR lpProcName
+mov qword rcx, [LoadLibraryA__opengl32_hModule] ; 1st: HMODULE hModule
+    call GetProcAddress
+mov qword [wglCreateContext], rax ; return FARPROC
+add rsp, 40 ; deallocate shadow space
+call GetLastError__epilogue_check
+call GetLastError__prologue_reset
+; MS __fastcall x64 ABI
+sub rsp, 40 ; allocate shadow space
+mov dword edx, GetProcAddress__wglMakeCurrent ; 2nd: LPCSTR lpProcName
+mov qword rcx, [LoadLibraryA__opengl32_hModule] ; 1st: HMODULE hModule
+    call GetProcAddress
+mov qword [wglMakeCurrent], rax ; return FARPROC
+add rsp, 40 ; deallocate shadow space
+call GetLastError__epilogue_check
+call GetLastError__prologue_reset
+; MS __fastcall x64 ABI
+sub rsp, 40 ; allocate shadow space
+mov dword edx, GetProcAddress__glClearColor ; 2nd: LPCSTR lpProcName
+mov qword rcx, [LoadLibraryA__opengl32_hModule] ; 1st: HMODULE hModule
+    call GetProcAddress
+mov qword [glClearColor], rax ; return FARPROC
+add rsp, 40 ; deallocate shadow space
+call GetLastError__epilogue_check
+call GetLastError__prologue_reset
+; MS __fastcall x64 ABI
+sub rsp, 40 ; allocate shadow space
+mov dword edx, GetProcAddress__glClear ; 2nd: LPCSTR lpProcName
+mov qword rcx, [LoadLibraryA__opengl32_hModule] ; 1st: HMODULE hModule
+    call GetProcAddress
+mov qword [glClear], rax ; return FARPROC
+add rsp, 40 ; deallocate shadow space
+call GetLastError__epilogue_check
+
+call GetLastError__prologue_reset
+; MS __fastcall x64 ABI
+sub rsp, 40 ; allocate shadow space
+mov qword rcx, [GetDC__hDC] ; 1st: HDC Arg1
+    call [wglCreateContext]
+mov qword [wglCreateContext__ctx], rax ; return HGLRC
+add rsp, 40 ; deallocate shadow space
+call GetLastError__epilogue_check
+
+call GetLastError__prologue_reset
+; MS __fastcall x64 ABI
+sub rsp, 40 ; allocate shadow space
+mov qword rdx, [wglCreateContext__ctx] ; 2nd: HGLRC
+mov qword rcx, [GetDC__hDC] ; 1st: HDC
+    call [wglMakeCurrent]
+mov dword [wglMakeCurrent__success], eax ; return BOOL
+add rsp, 40 ; deallocate shadow space
+call GetLastError__epilogue_check
 
 ; MS __fastcall x64 ABI
 sub rsp, 40 ; allocate shadow space
-mov qword rcx, GetModuleHandleA__hModule ; 1st: HANDLE Process
-    call DebugBreakProcess
-mov dword [DebugBreakProcess__success], eax ; return BOOL
+mov dword r9d, 1 ; 4th: GLclampf red
+mov dword r8d, 1 ; 3rd: GLclampf green
+mov dword edx, 0 ; 2nd: GLclampf blue
+mov dword ecx, 1 ; 1st: GLclampf alpha
+    call [glClearColor]
 add rsp, 40 ; deallocate shadow space
 
 Loop:
@@ -285,7 +347,7 @@ add rsp, 48 ; deallocate shadow space
 call GetLastError__epilogue_check
 
 cmp dword [PeekMessage_hasMsgs], 0 ; zero messages
-je near Loop
+je near ..@Render
 cmp dword [IncomingMessage_1.message], 0x12 ; WM_QUIT
 jne near ..@Loop__processMessage
 mov ecx, 0 ; UINT uExitCode
@@ -305,6 +367,22 @@ call GetLastError__prologue_reset
 sub rsp, 40 ; allocate shadow space
 mov qword rcx, IncomingMessage_1 ; 1st: LPMSG lpMsg
     call DispatchMessageA
+add rsp, 40 ; deallocate shadow space
+call GetLastError__epilogue_check
+
+..@Render:
+; MS __fastcall x64 ABI
+sub rsp, 40 ; allocate shadow space
+mov dword ecx, 16384 ; 1st: GLbitfield mask
+    call [glClear]
+add rsp, 40 ; deallocate shadow space
+
+call GetLastError__prologue_reset
+; MS __fastcall x64 ABI
+sub rsp, 40 ; allocate shadow space
+mov qword rcx, [GetDC__hDC] ; 1st: HDC Arg1
+    call SwapBuffers
+mov dword [SwapBuffers__success], eax ; return BOOL
 add rsp, 40 ; deallocate shadow space
 call GetLastError__epilogue_check
 
