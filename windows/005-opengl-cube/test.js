@@ -266,6 +266,8 @@ const build = () => {
 		],
 	}));
 
+	// GetSystemMetrics ; ie. screen dimensions
+	
 	// glShadeModel
 	// glClearColor
 	// glClearDepth

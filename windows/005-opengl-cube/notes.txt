@@ -1,0 +1,29 @@
+try experimenting with different window configurations (see what all the window types do)
+try solving that annoying "Invalid window handle." error when loop is properly constructed
+
+how to define the gl perspective (without glu)
+  yes glu is old and an alternative should be sought
+	  https://www.khronos.org/opengl/wiki/GluPerspective_code
+	it appears relatively simple to define the perspective matrix yourself, if you know the math
+	and fortunately for me, i already spent the time to do just that in the past
+		https://codepen.io/mikesmullin/pen/zNxoBL?editors=0010
+	this will enable me to avoid using the GLU dependency
+
+- try to get nasm to (in windows pe 64-bit executable):
+	- render a spinning gl cube
+    - render a gl triangle
+
+notes:
+
+- should make my own minimalist linker that reduces/reuses empty/unused space (97B)
+
+__fastcall 64 stack example:
+
+; -56-8  / +0  ret
+; -56+0  / +8  rcx 1st arg home [empty]
+; -56+8  / +16 rdx 2nd arg home [empty]
+; -56+16 / +24 r8  3rd arg home [empty]
+; -56+24 / +32 r9  4th arg home [empty]
+; -56+32 / +40     5th arg
+; -56+40 / +48     6th arg
+; -56+48 / +56     UNKNOWN SPACER (NOT RETURN VAL)
