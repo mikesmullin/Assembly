@@ -3,7 +3,7 @@
 const build = () => {
 	section = 'preprocessor';
 	asm(
-`; GOAL: Render OpenGL Context (either blue screen or full-color spinning cube)\n`);
+`; GOAL: Render OpenGL Context (blue screen)\n`);
 
 	asm('; build window');
 	asm('extern GetModuleHandleA');
@@ -255,25 +255,14 @@ const build = () => {
 		ret: { value: '[wglMakeCurrent__success]', size: 'dword', comment: 'BOOL' },
 	}));
 	
-	// asm('xor rax, rax');
-	// asm('xor rbx, rbx');
-	// asm('xor rcx, rcx');
-	// asm('xor rdx, rdx');
-	// asm('xor r8, r8');
-	// asm('xor r9, r9');
-	// asm('push qword 0');
-	// asm('push qword 0');
-	// asm('push qword 0');
-	// asm('push qword 0');
-	// TODO: make a fastcall fn that also calls glGetError
-	_var('onef', 'dq', '0x3f800000');
-	_var('zerof', 'dq', '0');
+	_var('ONE',  'dq', '0x3f800000');
+	_var('ZERO', 'dq', '0');
 	asm(__ms_64_fastcall/*_w_glGetError*/({ proc: '[glClearColor]',
 		args: [
-			{ float: 'onef', size: 'qword', comment: 'GLclampf alpha' },
-			{ float: 'zerof', size: 'qword', comment: 'GLclampf blue' },
-			{ float: 'onef', size: 'qword', comment: 'GLclampf green' },
-			{ float: 'onef', size: 'qword', comment: 'GLclampf red' },
+			{ float: '[ZERO]', size: 'qword', comment: 'GLclampf red' },
+			{ float: '[ZERO]', size: 'qword', comment: 'GLclampf green' },
+			{ float: '[ONE]',  size: 'qword', comment: 'GLclampf blue' },
+			{ float: '[ONE]',  size: 'qword', comment: 'GLclampf alpha' },
 		],
 	}));
 
@@ -655,11 +644,11 @@ const __ms_64_fastcall = ({ proc, ret, args=[] }) => {
 			];
 			if (i<=3) { // NOTICE: my fn does not support more than 4 float args right now
 				out +=
-					`mov qword [__tmp_float], ${arg.float}\n` +
-					`addsd ${registers[i][arg.size]}, [__tmp_float] ; ${pos}${arg.comment||''}\n`;
+					`mov qword rax, ${arg.float}\n` +
+					`movq ${registers[i][arg.size]}, rax ; ${pos}${arg.comment||''}\n`;
 			}
 		}
-		else {
+		else { // integer operands
 			registers = [
 				{ dword: 'ecx', qword: 'rcx' },
 				{ dword: 'edx', qword: 'rdx' },

@@ -113,8 +113,8 @@ glGetError: dq 0
 GetProcAddress__glGetError: db "glGetError",0
 wglCreateContext__ctx: dq 0
 wglMakeCurrent__success: dd 0
-onef: dq 0x3f800000
-zerof: dq 0
+ONE: dq 0x3f800000
+ZERO: dq 0
 
 ; struct
 IncomingMessage_1: ; instanceof tagMSG
@@ -341,10 +341,14 @@ call GetLastError__epilogue_check
 
 ; MS __fastcall x64 ABI
 sub rsp, 40 ; allocate shadow space
-xorps xmm0,xmm0
-xorps xmm1,xmm1
-xorps xmm2,xmm2
-xorps xmm3,xmm3
+mov qword rax, [ONE]
+movq xmm3, rax ; 4th: GLclampf alpha
+mov qword rax, [ONE]
+movq xmm2, rax ; 3rd: GLclampf blue
+mov qword rax, [ZERO]
+movq xmm1, rax ; 2nd: GLclampf green
+mov qword rax, [ZERO]
+movq xmm0, rax ; 1st: GLclampf red
     call [glClearColor]
 add rsp, 40 ; deallocate shadow space
 
