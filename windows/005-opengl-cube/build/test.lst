@@ -25,12 +25,12 @@
     25                                  extern PostQuitMessage
     26                                  
     27                                  section .data align=16
-    28 00000000 00000000                GetLastError__errCode: dd 0
-    29 00000004 00000000                glGetError__code: dd 0
-    30 00000008 00000000                WriteFile__bytesWritten: dd 0
-    31 0000000C 00<rept>                FormatMessage__buffer: times 256 db 0
-    32 0000010C 00000000                FormatMessage__length: dd 0
-    33 00000110 00000000                printf__success: dd 0
+    28 00000000 00000000                WriteFile__bytesWritten: dd 0
+    29 00000004 00<rept>                FormatMessage__buffer: times 256 db 0
+    30 00000104 00000000                GetLastError__errCode: dd 0
+    31 00000108 00000000                FormatMessage__length: dd 0
+    32 0000010C 00000000                printf__success: dd 0
+    33 00000110 00000000                glGetError__code: dd 0
     34 00000114 22676C4572726F7220-     glGetError__str: db 34,"glError %1!.8llX!",34,",10,0",0
     34 0000011D 2531212E386C6C5821-
     34 00000126 222C31302C3000     
@@ -524,97 +524,99 @@
    502                                  GetLastError__prologue_reset:
    503                                      ; MS __fastcall x64 ABI
    504 0000061A 4883EC28                    sub rsp, 40 ; allocate shadow space
-   505 0000061E B900000000                  mov dword ecx, 0; 1st: DWORD dwErrCode
+   505 0000061E B900000000                  mov dword ecx, 0x0; 1st: DWORD dwErrCode
    506 00000623 E8(00000000)            call SetLastError
    507 00000628 4883C428                    add rsp, 40 ; deallocate shadow space
-   508 0000062C C3                      ret
-   509                                  
-   510                                  GetLastError__epilogue_check:
-   511                                      ; MS __fastcall x64 ABI
-   512 0000062D 4883EC28                    sub rsp, 40 ; allocate shadow space
-   513 00000631 E8(00000000)            call GetLastError
-   514 00000636 890425[00000000]            mov dword [GetLastError__errCode], eax ; return 
-   515 0000063D 4883C428                    add rsp, 40 ; deallocate shadow space
-   516 00000641 83F800                  cmp dword eax, 0
-   517 00000644 0F8501000000            jne near ..@error
-   518 0000064A C3                      ret
-   519                                  
-   520                                  ..@error:
-   521                                      ; MS __fastcall x64 ABI
-   522 0000064B 4883EC40                    sub rsp, 64 ; allocate shadow space
-   523 0000064F 48C744243000000000          mov qword[rsp + 48], 0 ; 7th: va_list *Arguments
-   524 00000658 48C7442428-                 mov qword[rsp + 40], FormatMessage__length ; 6th: DWORD nSize
-   524 0000065D [0C010000]         
-   525 00000661 48C7442420-                 mov qword[rsp + 32], FormatMessage__buffer ; 5th: LPSTR lpBuffer
-   525 00000666 [0C000000]         
-   526 0000066A 41B900040000                mov dword r9d, 0x400; 4th: DWORD dwLanguageId
-   527 00000670 448B0425[00000000]          mov dword r8d, [GetLastError__errCode]; 3rd: DWORD dwMessageId
-   528 00000678 BA00000000                  mov dword edx, 0; 2nd: LPCVOID lpSource
-   529 0000067D B900120000                  mov dword ecx, 0x1200; 1st: DWORD dwFlags
-   530 00000682 E8(00000000)            call FormatMessageA
-   531 00000687 890425[0C010000]            mov dword [FormatMessage__length], eax ; return DWORD TCHARs written
-   532 0000068E 4883C440                    add rsp, 64 ; deallocate shadow space
-   533                                  
-   534                                      ; MS __fastcall x64 ABI
-   535 00000692 4883EC30                    sub rsp, 48 ; allocate shadow space
-   536 00000696 C744242000000000            mov dword[rsp + 32], 0 ; 5th: LPOVERLAPPED lpOverlapped
-   537 0000069E 41B9[08000000]              mov dword r9d, WriteFile__bytesWritten; 4th: LPDWORD lpNumberOfBytesWritten
-   538 000006A4 448B0425[0C010000]          mov dword r8d, [FormatMessage__length]; 3rd: DWORD nNumberOfBytesToWrite
-   539 000006AC BA[0C000000]                mov dword edx, FormatMessage__buffer; 2nd: LPCVOID lpBuffer
-   540 000006B1 8B0C25[31010000]            mov dword ecx, [Console__stdout_nStdHandle]; 1st: HANDLE hFile
-   541 000006B8 E8(00000000)            call WriteFile
-   542 000006BD 890425[10010000]            mov dword [printf__success], eax ; return BOOL
-   543 000006C4 4883C430                    add rsp, 48 ; deallocate shadow space
-   544                                  
-   545 000006C8 8B0C25[00000000]        mov ecx, [GetLastError__errCode] ; UINT uExitCode
-   546 000006CF E8A7000000              call Exit
-   547                                  
-   548                                  GetLastError__epilogue_glGetError:
-   549                                      ; MS __fastcall x64 ABI
-   550 000006D4 4883EC28                    sub rsp, 40 ; allocate shadow space
-   551 000006D8 FF1425[88020000]        call [glGetError]
-   552 000006DF 890425[04000000]            mov dword [glGetError__code], eax ; return GLenum
-   553 000006E6 4883C428                    add rsp, 40 ; deallocate shadow space
-   554 000006EA 83F800                  cmp dword eax, 0
-   555 000006ED 0F8501000000            jne near ..@glError
-   556 000006F3 C3                      ret
-   557                                  
-   558                                  ..@glError:
-   559                                      ; MS __fastcall x64 ABI
-   560 000006F4 4883EC40                    sub rsp, 64 ; allocate shadow space
-   561 000006F8 48C7442430-                 mov qword[rsp + 48], glGetError__code ; 7th: va_list *Arguments
-   561 000006FD [04000000]         
-   562 00000701 48C7442428-                 mov qword[rsp + 40], FormatMessage__length ; 6th: DWORD nSize
-   562 00000706 [0C010000]         
-   563 0000070A 48C7442420-                 mov qword[rsp + 32], FormatMessage__buffer ; 5th: LPSTR lpBuffer
-   563 0000070F [0C000000]         
-   564 00000713 41B900000000                mov dword r9d, 0x0; 4th: DWORD dwLanguageId
-   565 00000719 41B800000000                mov dword r8d, 0; 3rd: DWORD dwMessageId
-   566 0000071F BA[14010000]                mov dword edx, glGetError__str; 2nd: LPCVOID lpSource
-   567 00000724 B900240000                  mov dword ecx, 0x2400; 1st: DWORD dwFlags
-   568 00000729 E8(00000000)            call FormatMessageA
-   569 0000072E 890425[0C010000]            mov dword [FormatMessage__length], eax ; return DWORD TCHARs written
-   570 00000735 4883C440                    add rsp, 64 ; deallocate shadow space
-   571                                  
-   572                                      ; MS __fastcall x64 ABI
-   573 00000739 4883EC30                    sub rsp, 48 ; allocate shadow space
-   574 0000073D C744242000000000            mov dword[rsp + 32], 0 ; 5th: LPOVERLAPPED lpOverlapped
-   575 00000745 41B9[08000000]              mov dword r9d, WriteFile__bytesWritten; 4th: LPDWORD lpNumberOfBytesWritten
-   576 0000074B 448B0425[0C010000]          mov dword r8d, [FormatMessage__length]; 3rd: DWORD nNumberOfBytesToWrite
-   577 00000753 BA[0C000000]                mov dword edx, FormatMessage__buffer; 2nd: LPCVOID lpBuffer
-   578 00000758 8B0C25[31010000]            mov dword ecx, [Console__stdout_nStdHandle]; 1st: HANDLE hFile
-   579 0000075F E8(00000000)            call WriteFile
-   580 00000764 890425[10010000]            mov dword [printf__success], eax ; return BOOL
-   581 0000076B 4883C430                    add rsp, 48 ; deallocate shadow space
-   582 0000076F 8B0C25[04000000]        mov ecx, [glGetError__code] ; UINT uExitCode
-   583 00000776 E800000000              call Exit
-   584                                  
-   585                                  Exit:
-   586                                      ; MS __fastcall x64 ABI
-   587 0000077B 4883EC28                    sub rsp, 40 ; allocate shadow space
-   588 0000077F E8(00000000)            call ExitProcess
-   589 00000784 4883C428                    add rsp, 40 ; deallocate shadow space
-   590                                  
-   591 00000788 C3                      ret
-   592 00000789 E9EDFFFFFF              jmp near Exit
-   593                                  
+   508                                  
+   509 0000062C C3                      ret
+   510                                  
+   511                                  GetLastError__epilogue_check:
+   512                                      ; MS __fastcall x64 ABI
+   513 0000062D 4883EC28                    sub rsp, 40 ; allocate shadow space
+   514 00000631 E8(00000000)            call GetLastError
+   515 00000636 890425[04010000]            mov dword [GetLastError__errCode], eax ; return DWORD dwErrCode
+   516 0000063D 4883C428                    add rsp, 40 ; deallocate shadow space
+   517 00000641 83F800                  cmp dword eax, 0
+   518 00000644 0F8501000000            jne near ..@error
+   519 0000064A C3                      ret
+   520                                  
+   521                                  ..@error:
+   522                                      ; MS __fastcall x64 ABI
+   523 0000064B 4883EC40                    sub rsp, 64 ; allocate shadow space
+   524 0000064F 48C744243000000000          mov qword[rsp + 48], 0 ; 7th: va_list *Arguments
+   525 00000658 48C7442428-                 mov qword[rsp + 40], FormatMessage__length ; 6th: DWORD nSize
+   525 0000065D [08010000]         
+   526 00000661 48C7442420-                 mov qword[rsp + 32], FormatMessage__buffer ; 5th: LPSTR lpBuffer
+   526 00000666 [04000000]         
+   527 0000066A 41B900040000                mov dword r9d, 0x400; 4th: DWORD dwLanguageId
+   528 00000670 448B0425[04010000]          mov dword r8d, [GetLastError__errCode]; 3rd: DWORD dwMessageId
+   529 00000678 BA00000000                  mov dword edx, 0; 2nd: LPCVOID lpSource
+   530 0000067D B900120000                  mov dword ecx, 0x1200; 1st: DWORD dwFlags
+   531 00000682 E8(00000000)            call FormatMessageA
+   532 00000687 890425[08010000]            mov dword [FormatMessage__length], eax ; return DWORD TCHARs written
+   533 0000068E 4883C440                    add rsp, 64 ; deallocate shadow space
+   534                                  
+   535                                      ; MS __fastcall x64 ABI
+   536 00000692 4883EC30                    sub rsp, 48 ; allocate shadow space
+   537 00000696 C744242000000000            mov dword[rsp + 32], 0 ; 5th: LPOVERLAPPED lpOverlapped
+   538 0000069E 41B9[00000000]              mov dword r9d, WriteFile__bytesWritten; 4th: LPDWORD lpNumberOfBytesWritten
+   539 000006A4 448B0425[08010000]          mov dword r8d, [FormatMessage__length]; 3rd: DWORD nNumberOfBytesToWrite
+   540 000006AC BA[04000000]                mov dword edx, FormatMessage__buffer; 2nd: LPCVOID lpBuffer
+   541 000006B1 8B0C25[31010000]            mov dword ecx, [Console__stdout_nStdHandle]; 1st: HANDLE hFile
+   542 000006B8 E8(00000000)            call WriteFile
+   543 000006BD 890425[0C010000]            mov dword [printf__success], eax ; return BOOL
+   544 000006C4 4883C430                    add rsp, 48 ; deallocate shadow space
+   545                                  
+   546 000006C8 8B0C25[04010000]        mov ecx, [GetLastError__errCode] ; UINT uExitCode
+   547 000006CF E8A7000000              call Exit
+   548                                  
+   549                                  GetLastError__epilogue_glGetError:
+   550                                      ; MS __fastcall x64 ABI
+   551 000006D4 4883EC28                    sub rsp, 40 ; allocate shadow space
+   552 000006D8 FF1425[88020000]        call [glGetError]
+   553 000006DF 890425[10010000]            mov dword [glGetError__code], eax ; return GLenum errCode
+   554 000006E6 4883C428                    add rsp, 40 ; deallocate shadow space
+   555                                  
+   556 000006EA 83F800                  cmp dword eax, 0
+   557 000006ED 0F8501000000            jne near ..@glError
+   558 000006F3 C3                      ret
+   559                                  
+   560                                  ..@glError:
+   561                                      ; MS __fastcall x64 ABI
+   562 000006F4 4883EC40                    sub rsp, 64 ; allocate shadow space
+   563 000006F8 48C7442430-                 mov qword[rsp + 48], glGetError__code ; 7th: va_list *Arguments
+   563 000006FD [10010000]         
+   564 00000701 48C7442428-                 mov qword[rsp + 40], FormatMessage__length ; 6th: DWORD nSize
+   564 00000706 [08010000]         
+   565 0000070A 48C7442420-                 mov qword[rsp + 32], FormatMessage__buffer ; 5th: LPSTR lpBuffer
+   565 0000070F [04000000]         
+   566 00000713 41B900000000                mov dword r9d, 0x0; 4th: DWORD dwLanguageId
+   567 00000719 41B800000000                mov dword r8d, 0; 3rd: DWORD dwMessageId
+   568 0000071F BA[14010000]                mov dword edx, glGetError__str; 2nd: LPCVOID lpSource
+   569 00000724 B900240000                  mov dword ecx, 0x2400; 1st: DWORD dwFlags
+   570 00000729 E8(00000000)            call FormatMessageA
+   571 0000072E 890425[08010000]            mov dword [FormatMessage__length], eax ; return DWORD TCHARs written
+   572 00000735 4883C440                    add rsp, 64 ; deallocate shadow space
+   573                                  
+   574                                      ; MS __fastcall x64 ABI
+   575 00000739 4883EC30                    sub rsp, 48 ; allocate shadow space
+   576 0000073D C744242000000000            mov dword[rsp + 32], 0 ; 5th: LPOVERLAPPED lpOverlapped
+   577 00000745 41B9[00000000]              mov dword r9d, WriteFile__bytesWritten; 4th: LPDWORD lpNumberOfBytesWritten
+   578 0000074B 448B0425[08010000]          mov dword r8d, [FormatMessage__length]; 3rd: DWORD nNumberOfBytesToWrite
+   579 00000753 BA[04000000]                mov dword edx, FormatMessage__buffer; 2nd: LPCVOID lpBuffer
+   580 00000758 8B0C25[31010000]            mov dword ecx, [Console__stdout_nStdHandle]; 1st: HANDLE hFile
+   581 0000075F E8(00000000)            call WriteFile
+   582 00000764 890425[0C010000]            mov dword [printf__success], eax ; return BOOL
+   583 0000076B 4883C430                    add rsp, 48 ; deallocate shadow space
+   584 0000076F 8B0C25[10010000]        mov ecx, [glGetError__code] ; UINT uExitCode
+   585 00000776 E800000000              call Exit
+   586                                  
+   587                                  Exit:
+   588                                      ; MS __fastcall x64 ABI
+   589 0000077B 4883EC28                    sub rsp, 40 ; allocate shadow space
+   590 0000077F E8(00000000)            call ExitProcess
+   591 00000784 4883C428                    add rsp, 40 ; deallocate shadow space
+   592                                  
+   593 00000788 C3                      ret
+   594 00000789 E9EDFFFFFF              jmp near Exit
+   595                                  

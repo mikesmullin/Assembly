@@ -1,5 +1,7 @@
 package com.sdd.asm.lib;
 
+import com.sdd.asm.Macros;
+
 import java.util.ArrayList;
 import static com.sdd.asm.Macros.*;
 
@@ -34,6 +36,18 @@ public class Kernel32
 			new ValueSizeComment(Size.QWORD, "HMODULE *phModule"));
 	}
 
+	public static Proc SetLastError(final int dwErrCode) {
+		return new Proc(Macros::__ms_fastcall_64, "SetLastError",
+			new ArrayList<ValueSizeComment>(){{
+				add(new ValueSizeComment(hex(dwErrCode), Size.DWORD, "DWORD dwErrCode"));
+			}});
+	}
+	
+	public static Proc GetLastError() {
+		return new Proc(Macros::__ms_fastcall_64, "GetLastError",
+			new ValueSizeComment(Size.DWORD, "DWORD dwErrCode"));
+	}
+	
 	public static final int FORMAT_MESSAGE_FROM_SYSTEM = 0x00001000;
 	public static final int FORMAT_MESSAGE_IGNORE_INSERTS = 0x00000200;
 	public static final int FORMAT_MESSAGE_ARGUMENT_ARRAY = 0x00002000;
@@ -64,7 +78,7 @@ public class Kernel32
 				add(new ValueSizeComment(nSize, Size.QWORD, "DWORD nSize"));
 				add(new ValueSizeComment(Arguments, Size.QWORD, "va_list *Arguments"));
 			}},
-			new ValueSizeComment(deref("FORMAT_MESSAGE_RETURN_BUFFER_LENGTH"), Size.DWORD, "DWORD TCHARs written"));
+			new ValueSizeComment(Size.DWORD, "DWORD TCHARs written"));
 	}
 
 	public static final int STD_OUTPUT_HANDLE = -11;

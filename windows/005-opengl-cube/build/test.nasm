@@ -25,12 +25,12 @@ extern DestroyWindow
 extern PostQuitMessage
 
 section .data align=16
-GetLastError__errCode: dd 0
-glGetError__code: dd 0
 WriteFile__bytesWritten: dd 0
 FormatMessage__buffer: times 256 db 0
+GetLastError__errCode: dd 0
 FormatMessage__length: dd 0
 printf__success: dd 0
+glGetError__code: dd 0
 glGetError__str: db 34,"glError %1!.8llX!",34,",10,0",0
 Console__stderr_nStdHandle: dd 0
 Console__stdout_nStdHandle: dd 0
@@ -502,16 +502,17 @@ ret
 GetLastError__prologue_reset:
     ; MS __fastcall x64 ABI
     sub rsp, 40 ; allocate shadow space
-    mov dword ecx, 0; 1st: DWORD dwErrCode
+    mov dword ecx, 0x0; 1st: DWORD dwErrCode
 call SetLastError
     add rsp, 40 ; deallocate shadow space
+
 ret
 
 GetLastError__epilogue_check:
     ; MS __fastcall x64 ABI
     sub rsp, 40 ; allocate shadow space
 call GetLastError
-    mov dword [GetLastError__errCode], eax ; return 
+    mov dword [GetLastError__errCode], eax ; return DWORD dwErrCode
     add rsp, 40 ; deallocate shadow space
 cmp dword eax, 0
 jne near ..@error
@@ -549,8 +550,9 @@ GetLastError__epilogue_glGetError:
     ; MS __fastcall x64 ABI
     sub rsp, 40 ; allocate shadow space
 call [glGetError]
-    mov dword [glGetError__code], eax ; return GLenum
+    mov dword [glGetError__code], eax ; return GLenum errCode
     add rsp, 40 ; deallocate shadow space
+
 cmp dword eax, 0
 jne near ..@glError
 ret

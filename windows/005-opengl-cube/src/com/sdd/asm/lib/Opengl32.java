@@ -18,7 +18,7 @@ public class Opengl32
 	public static Proc wglCreateContext(
 		final String Arg1
 	) {
-		return new Proc("[wglCreateContext]",
+		return new Proc(deref("wglCreateContext"),
 			new ArrayList<ValueSizeComment>(){{
 				add(new ValueSizeComment(Arg1, Size.QWORD, "HDC Arg1"));
 			}},
@@ -29,7 +29,7 @@ public class Opengl32
 		final String hdc,
 		final String hglrc
 	) {
-		return new Proc("[wglMakeCurrent]",
+		return new Proc(deref("wglMakeCurrent"),
 			new ArrayList<ValueSizeComment>(){{
 				add(new ValueSizeComment(hdc, Size.QWORD, "HDC"));
 				add(new ValueSizeComment(hglrc, Size.QWORD, "HGLRC"));
@@ -43,7 +43,7 @@ public class Opengl32
 		final float blue,
 		final float alpha
 	) {
-		return new Proc(Macros::__ms_fastcall_64, "[glClearColor]",
+		return new Proc(Macros::__ms_fastcall_64, deref("glClearColor"),
 			new ArrayList<ValueSizeComment>(){{
 				add(new ValueSizeComment(red, Size.QWORD, "GLclampf red"));
 				add(new ValueSizeComment(green, Size.QWORD, "GLclampf green"));
@@ -57,9 +57,14 @@ public class Opengl32
 	public static final Proc glClear(
 		final int mask
 	) {
-		return new Proc(Macros::__ms_fastcall_64, "[glClear]",
+		return new Proc(Macros::__ms_fastcall_64, deref("glClear"),
 			new ArrayList<ValueSizeComment>(){{
 				add(new ValueSizeComment(mask, Size.DWORD, "GLbitfield mask"));
 			}});
+	}
+
+	public static final Proc glGetError() {
+		return new Proc(Macros::__ms_fastcall_64, deref("glGetError"),
+			new ValueSizeComment(Size.DWORD, "GLenum errCode"));
 	}
 }

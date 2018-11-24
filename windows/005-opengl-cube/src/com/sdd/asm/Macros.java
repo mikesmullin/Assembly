@@ -11,6 +11,7 @@ import java.util.concurrent.atomic.AtomicInteger;
 
 import com.sdd.asm.util.Utils;
 import static com.sdd.asm.lib.Kernel32.*;
+import static com.sdd.asm.lib.Opengl32.*;
 
 /**
  * Preprocessor.
@@ -82,22 +83,31 @@ public class Macros
 		}
 	}
 
-	// TODO: make sure labels are unique document-wide (ie. including label()), not just in .data section
-	private static HashSet<String> definedDataLabels = new HashSet<>();
+	public static class Label
+	{
+		public static Scope scope;
+		public static String name;
+		Label(final Scope scope, final String name)
+		{
+			this.scope = scope;
+			this.name = name;
+		}
+	}
 
-	// TODO: make a Label type that takes a Scope, and pass one Label here instead of both String and Scope
+	private static HashSet<String> definedLabels = new HashSet<>();
+	
 	public static void data(
-		final String label,
+		final Label label,
 		final int times,
 		final Size size,
-		final Operand val,
+		final String val,
 		final String comment
 	) {
-//		if(Scope.NORMAL == scope)
-		if (definedDataLabels.contains(label)) return;
-		definedDataLabels.add(label);
+		if (definedLabels.contains(label.name)) return; // silently avoid re-defining
+		definedLabels.add(label.name);
+//		if(Scope.NORMAL == label.scope)
 		sections.get(".data")
-			.append(label)
+			.append(label.name)
 			.append(": ")
 			.append(times > 1 ? "times "+ times +" " : "")
 			.append(size.d)
@@ -108,39 +118,39 @@ public class Macros
 	}
 
 	public static void data(
-		final String name,
+		final Label label,
 		final Size size,
-		final Operand val,
+		final String val,
 		final String comment
 	)
 	{
-		data(name, 1, size, val, comment);
+		data(label, 1, size, val, comment);
 	}
 
-	public static void data(final String name, final Size size, final String val) {
-		data(name, 1, size, operand(val), null);
+	public static void data(final Label label, final Size size, final String val) {
+		data(label, 1, size, val, null);
 	}
 
-	public static void data(final String name, final Size size, final float val) {
-		data(name, 1, size, operand(val), null);
+	public static void data(final Label label, final Size size, final float val) {
+		data(label, 1, size, operand(val).toString(), null);
 	}
 	
-	public static void data(final String name, final Size size, final int val) {
-		data(name, 1, size, operand(val), null);
+	public static void data(final Label label, final Size size, final int val) {
+		data(label, 1, size, operand(val).toString(), null);
 	}
 
-	public static void data(final String name, final Size size, final boolean val) {
-		data(name, 1, size, operand(val), null);
+	public static void data(final Label label, final Size size, final boolean val) {
+		data(label, 1, size, operand(val).toString(), null);
 	}
 
-	public static void data(final String name, final int times, final Size size)
+	public static void data(final Label label, final int times, final Size size)
 	{
-		data(name, times, size, operand(0), null);
+		data(label, times, size, "0", null);
 	}
 
-	public static void data(final String name, final Size size)
+	public static void data(final Label label, final Size size)
 	{
-		data(name, 1, size, operand(0), null);
+		data(label, 1, size, "0", null);
 	}
 	
 	public static HashMap<String,StringBuilder> blocks = new HashMap<>();
@@ -320,9 +330,9 @@ public class Macros
 				return null;
 			}
 			data(
-				label +"."+ k,
+				new Label(Scope.NORMAL, label +"."+ k),
 				struct.fields.get(k).type.size,
-				value,
+				value.toString(),
 				struct.fields.get(k).type.name +" "+ value.comment);
 		}
 		sections.get(".data").append("\n");
@@ -447,7 +457,6 @@ public class Macros
 	}
 
 	static {
-		data("GetLastError__errCode", Size.DWORD);
 		onready(()->{
 			blocks.get("PROCS").append("\n")
 				// ensure last error is 0
@@ -455,15 +464,11 @@ public class Macros
 				// makes us more confident calling GetLastError after a procedure runs to ensure 
 				// it was ok (if everything is still 0)
 				.append(def_label(Scope.NORMAL, "GetLastError__prologue_reset")).append("\n")
-				.append(call(new Proc(Macros::__ms_fastcall_64, "SetLastError", 
-					new ArrayList<ValueSizeComment>(){{
-						add(new ValueSizeComment(0, Size.DWORD, "DWORD dwErrCode"));
-					}})))
-				.append("ret\n\n")
+				.append(call(SetLastError(0)))
+				.append("\nret\n\n")
 		
 				.append(def_label(Scope.NORMAL, "GetLastError__epilogue_check")).append("\n")
-				.append(call(new Proc(Macros::__ms_fastcall_64, "GetLastError",
-					new ValueSizeComment(deref("GetLastError__errCode"), Size.DWORD))))
+				.append(assign_call(Scope.NORMAL, "GetLastError__errCode", GetLastError()))
 				.append(jmp_if(Size.DWORD, "eax", Comparison.NOT_EQUAL, "0", 
 					label(Scope.LOCAL, "error")))
 				.append("\nret\n\n")
@@ -483,12 +488,10 @@ public class Macros
 	}
 	
 	static {
-		data("glGetError__code", Size.DWORD);
 		onready(()->{
 			blocks.get("PROCS").append("\n"+
 				def_label(Scope.NORMAL, "GetLastError__epilogue_glGetError") +"\n"+
-				call(new Proc(Macros::__ms_fastcall_64, deref("glGetError"),
-					new ValueSizeComment(deref("glGetError__code"), Size.DWORD, "GLenum"))) +
+				assign_call(Scope.NORMAL, "glGetError__code", glGetError()) +"\n"+
 				jmp_if(Size.DWORD, "eax", Comparison.NOT_EQUAL, "0",
 					label(Scope.LOCAL, "glError")) +"\n"+
 				"ret\n\n" +
@@ -544,7 +547,7 @@ public class Macros
 				assign_call(Scope.NORMAL, "Console__stdout_nStdHandle",
 					GetStdHandle(STD_OUTPUT_HANDLE)) +"\n");
 		});
-		data("WriteFile__bytesWritten", Size.DWORD);
+		data(new Label(Scope.NORMAL, "WriteFile__bytesWritten"), Size.DWORD);
 	}
 	public static class Console
 	{
@@ -598,7 +601,7 @@ public class Macros
 		final String formatString,
 		final String arrayPtr
 	) {
-		data(formatStringLabel, Size.BYTE, nullstr(formatString));
+		data(new Label(Scope.NORMAL, formatStringLabel), Size.BYTE, nullstr(formatString));
 		return FormatMessageA(
 			FORMAT_MESSAGE_ARGUMENT_ARRAY |
 			FORMAT_MESSAGE_FROM_STRING,
@@ -613,7 +616,7 @@ public class Macros
 	public static final int FORMAT_BUFFER_SIZE = 256;
 	static
 	{
-		data("FormatMessage__buffer", FORMAT_BUFFER_SIZE, Size.BYTE);
+		data(new Label(Scope.NORMAL, "FormatMessage__buffer"), FORMAT_BUFFER_SIZE, Size.BYTE);
 	}
 	public static String printf(final Proc proc, final Callback2<String,String,Proc> printerCb)
 	{
@@ -626,8 +629,8 @@ public class Macros
 
 	public static String dllimport(final String library, final String... procs)
 	{
-		data("LoadLibraryA__"+ library, Size.BYTE, nullstr(library +".dll"));
-		data("LoadLibraryA__"+ library +"_hModule", Size.QWORD);
+		data(new Label(Scope.NORMAL, "LoadLibraryA__"+ library), Size.BYTE, nullstr(library +".dll"));
+		data(new Label(Scope.NORMAL, "LoadLibraryA__"+ library +"_hModule"), Size.QWORD);
 		final StringBuilder out = new StringBuilder();
 		out.append(comment("dynamically load library at runtime")).append("\n")
 			.append(__ms_fastcall_64_w_error_check(new Proc("LoadLibraryA",
@@ -639,8 +642,8 @@ public class Macros
 			
 		for (final String proc : procs)
 		{
-			data(proc, Size.QWORD);
-			data("GetProcAddress__"+ proc, Size.BYTE, nullstr(proc));
+			data(new Label(Scope.NORMAL, proc), Size.QWORD);
+			data(new Label(Scope.NORMAL, "GetProcAddress__"+ proc), Size.BYTE, nullstr(proc));
 			out.append(__ms_fastcall_64_w_error_check(new Proc("GetProcAddress",
 				new ArrayList<ValueSizeComment>() {{
 					add(new ValueSizeComment(deref("LoadLibraryA__"+ library +"_hModule"), Size.QWORD, "HMODULE hModule"));
@@ -705,6 +708,10 @@ public class Macros
 	
 	public static String def_label(final Scope scope, final String name)
 	{
+		if (definedLabels.contains(name))
+		{
+			_assert("Label "+ name +" already defined");
+		}
 		return label(scope, name) + ":";
 	}
 	
@@ -803,7 +810,7 @@ public class Macros
 		final Size size,
 		final String value
 	) {
-		data(label, size, value);
+		data(new Label(scope, label), size, value);
 		return label;
 	}
 
