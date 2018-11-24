@@ -229,7 +229,7 @@ call RegisterClassExA
     mov qword r9, 0x16cf0000; 4th: DWORD dwStyle
     mov qword r8, CreateWindow__title; 3rd: LPCSTR lpWindowName
     mov qword rdx, Generic__uuid; 2nd: LPCSTR lpClassName
-    mov qword rcx, 768; 1st: DWORD dwExStyle
+    mov qword rcx, 256; 1st: DWORD dwExStyle
 call CreateWindowExA
     mov qword [CreateWindow__hWnd], rax ; return HANDLE
     add rsp, 104 ; deallocate shadow space

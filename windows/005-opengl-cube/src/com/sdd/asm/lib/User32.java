@@ -132,8 +132,6 @@ public class User32
 	}
 
 	public static final int WS_EX_WINDOWEDGE = 0x00000100;
-	public static final int WS_EX_CLIENTEDGE = 0x00000200;
-	public static final int WS_EX_OVERLAPPEDWINDOW = WS_EX_WINDOWEDGE | WS_EX_CLIENTEDGE;
 	
 	public static final int WS_CLIPCHILDREN  = 0x02000000;
 	public static final int WS_CLIPSIBLINGS  = 0x04000000;
@@ -144,7 +142,6 @@ public class User32
 	public static final int WS_THICKFRAME    = 0x00040000;
 	public static final int WS_MINIMIZEBOX   = 0x00020000;
 	public static final int WS_MAXIMIZEBOX   = 0x00010000;
-	public static final int WS_OVERLAPPEDWINDOW = WS_OVERLAPPED | WS_CAPTION | WS_SYSMENU | WS_THICKFRAME | WS_MINIMIZEBOX | WS_MAXIMIZEBOX;
 	
 	public static final int CW_USEDEFAULT    = 0x80000000;
 

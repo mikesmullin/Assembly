@@ -46,10 +46,12 @@ public class Main
 	
 			comment("load references to the default icons for new windows"),
 			assign_call(Scope.GLOBAL, "CreateWindow__icon",
-				LoadImageA(null, OIC_WINLOGO, IMAGE_ICON, 0, 0, LR_SHARED | LR_DEFAULTSIZE)),
+				LoadImageA(null, OIC_WINLOGO, IMAGE_ICON, 
+					0, 0, LR_SHARED | LR_DEFAULTSIZE)),
 	
 			assign_call(Scope.GLOBAL, "CreateWindow__cursor",
-				LoadImageA(null, IDC_ARROW, IMAGE_CURSOR, 0, 0, LR_SHARED | LR_DEFAULTSIZE)),
+				LoadImageA(null, IDC_ARROW, IMAGE_CURSOR,
+					0, 0, LR_SHARED | LR_DEFAULTSIZE)),
 	
 			comment("begin creating the main local application window"),
 			assign_call(Scope.GLOBAL, "CreateWindow__atom_name",
@@ -57,7 +59,8 @@ public class Main
 				// TODO: also, define these within the RegisterClassExA invocation,
 				//       like a struct wth type completion ideally
 				RegisterClassExA(MainWindow = istruct("MainWindow", tagWNDCLASSEXA, new HashMap<String, Operand>(){{
-					put("style", operand(hex(CS_OWNDC | CS_VREDRAW | CS_HREDRAW), "= CS_OWNDC | CS_VREDRAW | CS_HREDRAW"));
+					put("style", operand(hex( CS_OWNDC | CS_VREDRAW | CS_HREDRAW),
+						"= CS_OWNDC | CS_VREDRAW | CS_HREDRAW"));
 					put("hInstance", operand("GetModuleHandleA__hModule"));
 					// NOTICE: the name used there has to be the same as the one used for CreateWindow
 					put("lpszClassName", operand("Generic__uuid"));
@@ -68,10 +71,13 @@ public class Main
 	
 			assign_call(Scope.GLOBAL, "CreateWindow__hWnd",
 				CreateWindowExA(
-					WS_EX_OVERLAPPEDWINDOW,
+					WS_EX_WINDOWEDGE,
 					addrOf("Generic__uuid"),
-					addrOf(assign(Scope.GLOBAL, "CreateWindow__title", Size.BYTE, nullstr("OpenGL Demo"))),
-					WS_OVERLAPPEDWINDOW | WS_VISIBLE | WS_CLIPCHILDREN | WS_CLIPSIBLINGS,
+					addrOf(assign(Scope.GLOBAL, "CreateWindow__title",
+						Size.BYTE, nullstr("OpenGL Demo"))),
+					WS_OVERLAPPED | WS_CAPTION | WS_SYSMENU | 
+						WS_THICKFRAME | WS_MINIMIZEBOX | WS_MAXIMIZEBOX |
+						WS_VISIBLE | WS_CLIPCHILDREN | WS_CLIPSIBLINGS,
 					CW_USEDEFAULT,
 					CW_USEDEFAULT,
 					640,

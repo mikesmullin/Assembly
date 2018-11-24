@@ -1,8 +1,4 @@
-try experimenting with different window configurations (see what all the window types do)
 try solving that annoying "Invalid window handle." error when loop is properly constructed
-
-
-
 
 
 // GetSystemMetrics ; ie. screen dimensions
@@ -39,10 +35,6 @@ try solving that annoying "Invalid window handle." error when loop is properly c
 
 
 
-
-TODO: make it so args passed to functions appear in comments as string values
-	like TRUE, FALSE, NULL, and BIT_FLAGS | OR_JOINED
-
 TODO: use the stack for all variables? like in macros build a stack frame reference
 	so that important offsets are remembered and reusable with rsp offsets whether
 	or not the code JMP or CALL several procs down the line
@@ -53,8 +45,6 @@ TODO: use the stack for all variables? like in macros build a stack frame refere
 	but that would make all calls even register calls require two memory lookups
 	which would be slower
 	better think about this more
-
-TODO: get values showing up suffixed to comments again like = SOME_BIT_FLAG
 
 TODO: could make it so i don't check for GetLastError unless a proc returns 0
 TODO: output to log file in relative path instead of showing console window

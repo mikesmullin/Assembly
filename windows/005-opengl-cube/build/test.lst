@@ -245,7 +245,7 @@
    230 000001A1 [D201000000000000] 
    231 000001A9 48BA-                       mov qword rdx, Generic__uuid; 2nd: LPCSTR lpClassName
    231 000001AB [3501000000000000] 
-   232 000001B3 B900030000                  mov qword rcx, 768; 1st: DWORD dwExStyle
+   232 000001B3 B900010000                  mov qword rcx, 256; 1st: DWORD dwExStyle
    233 000001B8 E8(00000000)            call CreateWindowExA
    234 000001BD 48890425[DE010000]          mov qword [CreateWindow__hWnd], rax ; return HANDLE
    235 000001C5 4883C468                    add rsp, 104 ; deallocate shadow space
