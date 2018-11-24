@@ -140,11 +140,11 @@ public class Main
 	
 			comment("if zero messages, skip handling messages"),
 			jmp_if(Size.DWORD, deref("PeekMessage_hasMsgs"), Compare.EQUAL, "0",
-				"..@Render"),
+				label(Scope.LOCAL, "Render")),
 	
 			comment("", "exit if message is WM_QUIT"),
 			jmp_if(Size.DWORD, deref(IncomingMessage +".message"), Compare.NOT_EQUAL, hex(WM_QUIT),
-				"..@Loop__processMessage"),
+				label(Scope.LOCAL, "Loop__processMessage")),
 	
 			exit(0),
 	
@@ -218,6 +218,5 @@ public class Main
 
 			block("PROCS")
 		);
-
 	}
 }
