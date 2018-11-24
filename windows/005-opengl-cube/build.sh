@@ -8,7 +8,7 @@
 # - Microsoft Visual Studio Community Edition (latest or 2017)
 # - NASM (latest or v2.14)
 # - PellesC (latest or polink v9.00.3)
-# - Visual Studio Code (my choice for editing in this case)
+# - IntelliJ (my choice for editing in this case)
 # - Cygwin, or MinGW shell
 
 # This script format assumes you're running it from MinGW terminal (ie. VSCode)
@@ -28,17 +28,17 @@ rm -f test.exe test.obj
 
 # use NASM to compile intermediary binary (*.obj)
 "C:\Users\Mike\AppData\Local\bin\NASM\nasm.exe" \
-	-f win64 "F:\Desktop\tmp\winasm-2\Assembly\windows\005-opengl-cube\test.nasm" \
-	-l "F:\Desktop\tmp\winasm-2\Assembly\windows\005-opengl-cube\test.lst" \
-	-o "F:\Desktop\tmp\winasm-2\Assembly\windows\005-opengl-cube\test.obj"
+	-f win64 "F:\Desktop\tmp\winasm-2\Assembly\windows\005-opengl-cube\build\test.nasm" \
+	-l "F:\Desktop\tmp\winasm-2\Assembly\windows\005-opengl-cube\build\test.lst" \
+	-o "F:\Desktop\tmp\winasm-2\Assembly\windows\005-opengl-cube\build\test.obj"
 
 # statically link binary and external libraries into final (PE) executable (*.exe)
-ld -s test.obj \
+ld -s "F:\Desktop\tmp\winasm-2\Assembly\windows\005-opengl-cube\build\test.obj" \
 	"C:\Program Files\PellesC\Lib\Win64\kernel32.lib" \
 	"C:\Program Files\PellesC\Lib\Win64\user32.lib" \
 	"C:\Program Files\PellesC\Lib\Win64\gdi32.lib" \
-	-o "F:\Desktop\tmp\winasm-2\Assembly\windows\005-opengl-cube\test.exe"
+	-o "F:\Desktop\tmp\winasm-2\Assembly\windows\005-opengl-cube\build\test.exe"
 
 # list output file size, in bytes
-ls -l test.exe
+ls -l "F:\Desktop\tmp\winasm-2\Assembly\windows\005-opengl-cube\build\test.exe"
 
