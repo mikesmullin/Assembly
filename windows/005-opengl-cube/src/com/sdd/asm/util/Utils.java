@@ -10,4 +10,16 @@ public class Utils
 		}
 		return null;
 	}
+
+	public interface Callback<T> {
+		T run();
+	}
+
+	public interface Callback1<T1,T2> {
+		T2 call(T1 a);
+	}
+
+	public interface Callback2<T1,T2,T3> {
+		T3 call(T1 a, T2 b);
+	}
 }

@@ -9,7 +9,7 @@ import java.util.HashSet;
 import java.util.LinkedHashMap;
 import java.util.concurrent.atomic.AtomicInteger;
 
-import com.sdd.asm.util.Utils;
+import static com.sdd.asm.util.Utils.*;
 import static com.sdd.asm.lib.Kernel32.*;
 import static com.sdd.asm.lib.Opengl32.*;
 
@@ -18,15 +18,28 @@ import static com.sdd.asm.lib.Opengl32.*;
  */
 public class Macros
 {
+	/**
+	 * Like `throw` keyword, causes compiler to print an error and abort.
+	 */
 	public static void _assert(final String reason)
 	{
 		System.err.println(reason);
 		System.exit(1);
 	}
-	
+
+	/**
+	 * Directory where .nasm file will be output.
+	 */
 	public static String BUILD_PATH = "build/";
+
+	/**
+	 * Name of file which will hold the assembly instructions.
+	 */
 	public static String OUT_FILE;
-	private static String section = "preprocessor";
+
+	/**
+	 * A list of sections, each holding compiled string instructions.
+	 */
 	private static HashMap<String,StringBuilder> sections = new HashMap<>();
 	static
 	{
@@ -34,12 +47,23 @@ public class Macros
 		sections.put(".data", new StringBuilder());
 		sections.put(".text", new StringBuilder());
 	}
-	
+
+	/**
+	 * The current section, which `asm()` will write to.
+	 */
+	private static String section = "preprocessor";
+
+	/**
+	 * Change the current section.
+	 */
 	public static void section(final String name)
 	{
 		section = name;
 	}
-	
+
+	/**
+	 * Append string instruction to current `section`.
+	 */
 	public static void asm(final String... s)
 	{
 		StringBuilder sb = sections.get(section);
@@ -51,13 +75,20 @@ public class Macros
 		sb.append(String.join("\n", s)).append("\n");
 	}
 
+	/**
+	 * Some sections should appear in a particular order.
+	 */
 	private static final ArrayList<String> sectionOrder = new ArrayList<>();
 	static {
 		sectionOrder.add("preprocessor");
 		sectionOrder.add(".data");
 		sectionOrder.add(".text");
 	}
-	public static void out()
+
+	/**
+	 * Write all sections to file on disk.
+	 */
+	public static void writeToDisk()
 	{
 		if (null == OUT_FILE) OUT_FILE = "test.nasm";
 		try
@@ -105,7 +136,7 @@ public class Macros
 	) {
 		if (definedLabels.contains(label.name)) return; // silently avoid re-defining
 		definedLabels.add(label.name);
-//		if(Scope.NORMAL == label.scope)
+//		if(Scope.GLOBAL == label.scope)
 		sections.get(".data")
 			.append(label.name)
 			.append(": ")
@@ -117,6 +148,9 @@ public class Macros
 			.append("\n");
 	}
 
+	/**
+	 * Append a variable reference to the .data section.
+	 */
 	public static void data(
 		final Label label,
 		final Size size,
@@ -152,18 +186,32 @@ public class Macros
 	{
 		data(label, 1, size, "0", null);
 	}
-	
+
+	/**
+	 * A default set of block which can be used by the document.
+	 */
 	public static HashMap<String,StringBuilder> blocks = new HashMap<>();
 	static {
+		// things which occur at the beginning of the document
 		blocks.put("INIT", new StringBuilder());
+		// things which occur at the end of the document
 		blocks.put("PROCS", new StringBuilder());
 	}
+
+	/**
+	 * A collection of arbitrarily named sections of the document. 
+	 * Like the block keyword from Jade/Pug templates.
+	 */
 	public static String block(final String name)
 	{
 		return blocks.get(name).toString();
 	}
 	
 	private static ArrayList<Runnable> initializers = new ArrayList<>();
+
+	/**
+	 * Delays execution until after all macros and their data have been established.
+	 */
 	public static void onready(final Runnable cb)
 	{
 		initializers.add(cb);
@@ -202,18 +250,9 @@ public class Macros
 		public LinkedHashMap<String, StructType> fields = new LinkedHashMap<>();
 	}
 
-	public interface Callback<T> {
-		T run();
-	}
-
-	public interface Callback1<T1,T2> {
-		T2 call(T1 a);
-	}
-	
-	public interface Callback2<T1,T2,T3> {
-		T3 call(T1 a, T2 b);
-	}
-
+	/**
+	 * Differentiate various meanings from their limited integer representation.
+	 */
 	public enum PretendValue
 	{
 		NULL,
@@ -305,6 +344,9 @@ public class Macros
 	}
 	
 	private static HashMap<String,AtomicInteger> instanceCounter = new HashMap<>();
+	/**
+	 * Instantiate a copy of given structure. 
+	 */
 	public static String istruct(
 		final String name,
 		final Struct struct,
@@ -321,7 +363,7 @@ public class Macros
 			.append(label).append(": ; instanceof ").append(struct.name).append("\n");
 		for (final String k : struct.fields.keySet())
 		{
-			Operand value = Utils.orEquals(
+			Operand value = orEquals(
 				values.get(k),
 				struct.fields.get(k).defaultValue);
 			if (null == value)
@@ -330,7 +372,7 @@ public class Macros
 				return null;
 			}
 			data(
-				new Label(Scope.NORMAL, label +"."+ k),
+				new Label(Scope.GLOBAL, label +"."+ k),
 				struct.fields.get(k).type.size,
 				value.toString(),
 				struct.fields.get(k).type.name +" "+ value.comment);
@@ -345,8 +387,10 @@ public class Macros
 	) {
 		return istruct(name, struct, new HashMap<>());
 	}
-	
-	
+
+	/**
+	 * Count the size of a struct in bytes.
+	 */
 	public static int sizeof(final Struct struct)
 	{
 		int size = 0;
@@ -359,11 +403,17 @@ public class Macros
 		return size;
 	}
 
+	/**
+	 * Convert unsigned integer to hexadecimal string.
+	 */
 	public static String hex(final int n)
 	{
 		return "0x"+ Integer.toHexString(n);
 	}
 
+	/**
+	 * Convert decimal to English like 1 -> "1st" 
+	 */
 	public static String englishOrdinal(final int i)
 	{
 		final String s = Integer.toString(i);
@@ -463,13 +513,13 @@ public class Macros
 				// invoked before calling a function which may or may not have lasterror support
 				// makes us more confident calling GetLastError after a procedure runs to ensure 
 				// it was ok (if everything is still 0)
-				.append(def_label(Scope.NORMAL, "GetLastError__prologue_reset")).append("\n")
+				.append(def_label(Scope.GLOBAL, "GetLastError__prologue_reset")).append("\n")
 				.append(call(SetLastError(0)))
 				.append("\nret\n\n")
 		
-				.append(def_label(Scope.NORMAL, "GetLastError__epilogue_check")).append("\n")
-				.append(assign_call(Scope.NORMAL, "GetLastError__errCode", GetLastError()))
-				.append(jmp_if(Size.DWORD, "eax", Comparison.NOT_EQUAL, "0", 
+				.append(def_label(Scope.GLOBAL, "GetLastError__epilogue_check")).append("\n")
+				.append(assign_call(Scope.GLOBAL, "GetLastError__errCode", GetLastError()))
+				.append(jmp_if(Size.DWORD, "eax", Compare.NOT_EQUAL, "0", 
 					label(Scope.LOCAL, "error")))
 				.append("\nret\n\n")
 		
@@ -480,6 +530,10 @@ public class Macros
 				.append(exit(deref("GetLastError__errCode")));
 		});
 	}
+	/**
+	 * Calling convention.
+	 * Also check whether GetLastError was set.
+	 */
 	public static String __ms_fastcall_64_w_error_check(final Proc proc)
 	{
 		return "    call GetLastError__prologue_reset\n" +
@@ -490,9 +544,9 @@ public class Macros
 	static {
 		onready(()->{
 			blocks.get("PROCS").append("\n"+
-				def_label(Scope.NORMAL, "GetLastError__epilogue_glGetError") +"\n"+
-				assign_call(Scope.NORMAL, "glGetError__code", glGetError()) +"\n"+
-				jmp_if(Size.DWORD, "eax", Comparison.NOT_EQUAL, "0",
+				def_label(Scope.GLOBAL, "GetLastError__epilogue_glGetError") +"\n"+
+				assign_call(Scope.GLOBAL, "glGetError__code", glGetError()) +"\n"+
+				jmp_if(Size.DWORD, "eax", Compare.NOT_EQUAL, "0",
 					label(Scope.LOCAL, "glError")) +"\n"+
 				"ret\n\n" +
 
@@ -506,10 +560,14 @@ public class Macros
 				exit(deref("glGetError__code")));
 		});
 	}
+	/**
+	 * Calling convention.
+	 * Also check if GL error was triggered. 
+	 */
 	public static String __ms_fastcall_64_w_glGetError(final Proc proc)
 	{
 		return __ms_fastcall_64(proc) +
-			"call "+ label(Scope.NORMAL, "GetLastError__epilogue_glGetError") +"\n";
+			"call "+ label(Scope.GLOBAL, "GetLastError__epilogue_glGetError") +"\n";
 	}
 
 	static
@@ -523,6 +581,9 @@ public class Macros
 				"jmp near Exit");
 		});
 	}
+	/**
+	 * Set exit code and jump to the label for handling process shutdown.
+	 */
 	public static String exit(final String code)
 	{
 		return "mov ecx, "+ code +" ; UINT uExitCode\n"+
@@ -542,13 +603,17 @@ public class Macros
 		onready(()->{
 			blocks.get("INIT").append("\n"+
 				comment("get pointers to stdout/stderr pipes") +"\n"+
-				assign_call(Scope.NORMAL, "Console__stderr_nStdHandle",
+				assign_call(Scope.GLOBAL, "Console__stderr_nStdHandle",
 					GetStdHandle(STD_ERROR_HANDLE)) +"\n"+
-				assign_call(Scope.NORMAL, "Console__stdout_nStdHandle",
+				assign_call(Scope.GLOBAL, "Console__stdout_nStdHandle",
 					GetStdHandle(STD_OUTPUT_HANDLE)) +"\n");
 		});
-		data(new Label(Scope.NORMAL, "WriteFile__bytesWritten"), Size.DWORD);
+		data(new Label(Scope.GLOBAL, "WriteFile__bytesWritten"), Size.DWORD);
 	}
+	/**
+	 * Uses Windows Kernel32.dll WriteFile to print to STDOUT or STDERR.
+	 * Useful when debugging.
+	 */
 	public static class Console
 	{
 		public static Proc log(final String str, final String len)
@@ -595,13 +660,17 @@ public class Macros
 				"FormatMessage__length",
 				null));
 	}
-	
+
+	/**
+	 * Prepare a call that will return a buffer and buffer length.
+	 * Meant primarily for use with `printf()` function/
+	 */
 	public static Proc FormatString(
 		final String formatStringLabel,
 		final String formatString,
 		final String arrayPtr
 	) {
-		data(new Label(Scope.NORMAL, formatStringLabel), Size.BYTE, nullstr(formatString));
+		data(new Label(Scope.GLOBAL, formatStringLabel), Size.BYTE, nullstr(formatString));
 		return FormatMessageA(
 			FORMAT_MESSAGE_ARGUMENT_ARRAY |
 			FORMAT_MESSAGE_FROM_STRING,
@@ -616,21 +685,25 @@ public class Macros
 	public static final int FORMAT_BUFFER_SIZE = 256;
 	static
 	{
-		data(new Label(Scope.NORMAL, "FormatMessage__buffer"), FORMAT_BUFFER_SIZE, Size.BYTE);
+		data(new Label(Scope.GLOBAL, "FormatMessage__buffer"), FORMAT_BUFFER_SIZE, Size.BYTE);
 	}
 	public static String printf(final Proc proc, final Callback2<String,String,Proc> printerCb)
 	{
-		return assign_call(Scope.NORMAL, "FormatMessage__length", proc) +"\n"+
-			assign_call(Scope.NORMAL, "printf__success", printerCb.call(
+		return assign_call(Scope.GLOBAL, "FormatMessage__length", proc) +"\n"+
+			assign_call(Scope.GLOBAL, "printf__success", printerCb.call(
 				"FormatMessage__buffer", // str
 				deref("FormatMessage__length") // len
 			));
 	}
 
+	/**
+	 * Invokes LoadLibraryA once and GetProcAddress for each method you want to
+	 * reference from that library.
+	 */
 	public static String dllimport(final String library, final String... procs)
 	{
-		data(new Label(Scope.NORMAL, "LoadLibraryA__"+ library), Size.BYTE, nullstr(library +".dll"));
-		data(new Label(Scope.NORMAL, "LoadLibraryA__"+ library +"_hModule"), Size.QWORD);
+		data(new Label(Scope.GLOBAL, "LoadLibraryA__"+ library), Size.BYTE, nullstr(library +".dll"));
+		data(new Label(Scope.GLOBAL, "LoadLibraryA__"+ library +"_hModule"), Size.QWORD);
 		final StringBuilder out = new StringBuilder();
 		out.append(comment("dynamically load library at runtime")).append("\n")
 			.append(__ms_fastcall_64_w_error_check(new Proc("LoadLibraryA",
@@ -642,8 +715,8 @@ public class Macros
 			
 		for (final String proc : procs)
 		{
-			data(new Label(Scope.NORMAL, proc), Size.QWORD);
-			data(new Label(Scope.NORMAL, "GetProcAddress__"+ proc), Size.BYTE, nullstr(proc));
+			data(new Label(Scope.GLOBAL, proc), Size.QWORD);
+			data(new Label(Scope.GLOBAL, "GetProcAddress__"+ proc), Size.BYTE, nullstr(proc));
 			out.append(__ms_fastcall_64_w_error_check(new Proc("GetProcAddress",
 				new ArrayList<ValueSizeComment>() {{
 					add(new ValueSizeComment(deref("LoadLibraryA__"+ library +"_hModule"), Size.QWORD, "HMODULE hModule"));
@@ -654,7 +727,11 @@ public class Macros
 		}
 		return out.toString();
 	}
-	
+
+	/**
+	 * Adds an extern reference at the top of the document.
+	 * Only one per module; subsequent calls will fail silently.
+	 */
 	private static HashSet<String> externs = new HashSet<>();
 	public static void extern(final String... modules)
 	{
@@ -671,7 +748,10 @@ public class Macros
 		}
 		section = oldSection;
 	}
-	
+
+	/**
+	 * A comment in NASM syntax.
+	 */
 	public static String comment(final String... comments)
 	{
 		return "; "+ String.join("\n; ", comments);
@@ -679,33 +759,62 @@ public class Macros
 	
 	public enum Scope
 	{
+		/**
+		 * NASM global
+		 * causes the named label to be exported to the symbol table
+		 */
+		EXPORT,
+		/**
+		 * NASM [non-local] label
+		 * a normal label that can be referenced from anywhere
+		 */
 		GLOBAL,
-		NORMAL,
-		LOCAL
+		/**
+		 * NASM local label
+		 * a label that can be referenced relative to a non-local label
+		 * (ie. ".field" referenced as "Struct.field")
+		 */
+		RELATIVE,
+		/**
+		 * NASM special prefix label
+		 */
+		LOCAL,
+		/**
+		 * NASM special label
+		 * (ie. `..start` defines entry point)
+		 */
+		SPECIAL
 	}
-	
+
+	/**
+	 * A label reference in NASM syntax.
+	 * 
+	 * see: https://www.nasm.us/doc/nasmdoc3.html
+	 */
 	public static String label(final Scope scope, final String name)
 	{
-		if (Scope.GLOBAL == scope)
+		switch (scope)
 		{
-			return("global "+ name +"\n"+
-				name);
-		}
-		else if (Scope.NORMAL == scope)
-		{
-			return name;
-		}
-		else if (Scope.LOCAL == scope)
-		{
-			return "..@"+ name;
-		}
-		else
-		{
-			_assert("Invalid scope");
-			return "";
+			case EXPORT:
+				return "global " + name + "\n" +
+						name;
+			case GLOBAL:
+				return name;
+			case RELATIVE:
+				return "." + name;
+			case LOCAL:
+				return "..@" + name;
+			case SPECIAL:
+				return ".." + name;
+			default:
+				_assert("Invalid scope");
+				return "";
 		}
 	}
-	
+
+	/**
+	 * A label definition in NASM syntax.
+	 */
 	public static String def_label(final Scope scope, final String name)
 	{
 		if (definedLabels.contains(name))
@@ -714,12 +823,20 @@ public class Macros
 		}
 		return label(scope, name) + ":";
 	}
-	
+
+	/**
+	 * The address of a given label in NASM syntax.
+	 * A pointer.
+	 */
 	public static String addrOf(final String label)
 	{
 		return label;
 	}
 
+	/**
+	 * The contents of a given label in NASM syntax.
+	 * A dereferenced pointer.
+	 */
 	public static String deref(final String label)
 	{
 		return "[" + label +"]";
@@ -738,6 +855,142 @@ public class Macros
 	{
 		StringBuilder sb = new StringBuilder();
 	}
+
+	/**
+	 * Internal data structure defines a procedure in terms of calling convention,
+	 * a collection of labels, parameters, operand/address sizes, code comments,
+	 * and a return value.
+	 *
+	 * Serialized into NASM syntax by the defined calling convention callback,
+	 * when passed to an instruction like `call()`.
+	 */
+	public static class Proc
+	{
+		public Callback1<Proc,String> convention;
+		public String proc;
+		public ArrayList<ValueSizeComment> args;
+		public ValueSizeComment ret;
+
+		public Proc(
+			final String proc,
+			final ArrayList<ValueSizeComment> args,
+			final ValueSizeComment ret
+		) {
+			this.proc = proc;
+			this.args = args;
+			this.ret = ret;
+		}
+
+		public Proc(
+			final Callback1<Proc,String> convention,
+			final String proc,
+			final ValueSizeComment ret
+		) {
+			this.convention = convention;
+			this.proc = proc;
+			this.args = new ArrayList<>();
+			this.ret = ret;
+		}
+
+		public Proc(
+			final String proc,
+			final ValueSizeComment ret
+		) {
+			this.proc = proc;
+			this.args = new ArrayList<>();
+			this.ret = ret;
+		}
+
+		public Proc(final String proc)
+		{
+			this.proc = proc;
+			this.args = new ArrayList<>();
+		}
+
+		public Proc(final String proc, final ArrayList<ValueSizeComment> args)
+		{
+			this.proc = proc;
+			this.args = args;
+		}
+
+		public Proc(
+			final Callback1<Proc,String> convention,
+			final String proc,
+			final ArrayList<ValueSizeComment> args
+		) {
+			this.convention = convention;
+			this.proc = proc;
+			this.args = args;
+		}
+	}
+
+	/**
+	 * Internal data structure symbolizing the various operand/address sizes
+	 * supported by NASM.
+	 */
+	public enum Size
+	{
+		BYTE(1, "db"),
+		WORD(2, "dw"),
+		DWORD(4, "dd"),
+		QWORD(8, "dq");
+
+		public final int bytes;
+		public final String d;
+		Size(final int bytes, final String d)
+		{
+			this.bytes = bytes;
+			this.d = d;
+		}
+	}
+
+	public static class ValueSizeComment
+	{
+		Operand value;
+		Size size;
+		String comment;
+
+		private void init(final Operand value, final Size size, final String comment)
+		{
+			this.value = value;
+			this.size = orEquals(size, Size.DWORD);
+			this.comment = orEquals(comment, "");
+		}
+
+		public ValueSizeComment(final String value, final Size size, final String comment)
+		{
+			init(operand(value), size, comment);
+		}
+
+		public ValueSizeComment(final float value, final Size size, final String comment)
+		{
+			init(operand(value), size, comment);
+		}
+
+		public ValueSizeComment(final int value, final Size size, final String comment)
+		{
+			init(operand(value), size, comment);
+		}
+
+		public ValueSizeComment(final boolean value, final Size size, final String comment)
+		{
+			init(operand(value), size, comment);
+		}
+
+		public ValueSizeComment(final Size size, final String comment)
+		{
+			init(null, size, comment);
+		}
+
+		public ValueSizeComment(final String value, final Size size)
+		{
+			init(operand(value), size, "");
+		}
+	}
+	
+	/**
+	 * Escape a string for use as data in NASM syntax.
+	 */
 	public static String escapeString(final String s)
 	{
 		EscapeStringType lastType = EscapeStringType.CODE;
@@ -782,20 +1035,32 @@ public class Macros
 		}
 		return String.join(",", out);
 	}
-	
+
+	/**
+	 * The libc variable-length string .data structure.
+	 * Ends a string definition with a NUL \0 character.
+	 */
 	public static String nullstr(final String s)
 	{
 		return escapeString(s) + ",0";
 	}
-	
+
+	/**
+	 * Defines float as .data in memory for quick-reference by SIMD instructions
+	 * and easy reuse, since MMX/SSE instructions typically don't accept immediate
+	 * operands.
+	 */
 	public static String makeFloat(final float f)
 	{
 		final String label = ("F"+ f).replace(".","_");
-		assign(Scope.NORMAL, label,  Size.QWORD, 
+		assign(Scope.GLOBAL, label,  Size.QWORD, 
 			"0x"+Integer.toHexString(Float.floatToIntBits(f)));
 		return deref(label);
 	}
 
+	/**
+	 * `CALL` instruction in NASM syntax.
+	 */
 	public static String call(final Proc procOpts)
 	{
 		if (null == procOpts.convention) 
@@ -804,6 +1069,11 @@ public class Macros
 		}
 		return procOpts.convention.call(procOpts);
 	}
+
+	/**
+	 * Defines a .data variable which can be read and/or written to later,
+	 * and returns a label to be referenced repeatedly throughout the document.
+	 */
 	public static String assign(
 		final Scope scope,
 		final String label,
@@ -822,127 +1092,10 @@ public class Macros
 	{
 		return assign(scope, label, size, "0");
 	}
-	
-	public static class Proc
-	{
-		public Callback1<Proc,String> convention;
-		public String proc;
-		public ArrayList<ValueSizeComment> args;
-		public ValueSizeComment ret;
-		
-		public Proc(
-			final String proc,
-			final ArrayList<ValueSizeComment> args,
-			final ValueSizeComment ret
-		) {
-			this.proc = proc;
-			this.args = args;
-			this.ret = ret;
-		}
 
-		public Proc(
-			final Callback1<Proc,String> convention,
-			final String proc,
-			final ValueSizeComment ret
-		) {
-			this.convention = convention;
-			this.proc = proc;
-			this.args = new ArrayList<>();
-			this.ret = ret;
-		}
-
-		public Proc(
-			final String proc,
-			final ValueSizeComment ret
-		) {
-			this.proc = proc;
-			this.args = new ArrayList<>();
-			this.ret = ret;
-		}
-		
-		public Proc(final String proc)
-		{
-			this.proc = proc;
-			this.args = new ArrayList<>();
-		}
-		
-		public Proc(final String proc, final ArrayList<ValueSizeComment> args)
-		{
-			this.proc = proc;
-			this.args = args;
-		}
-		
-		public Proc(
-			final Callback1<Proc,String> convention,
-			final String proc,
-			final ArrayList<ValueSizeComment> args
-		) {
-			this.convention = convention;
-			this.proc = proc;
-			this.args = args;
-		}
-	}
-
-	public enum Size
-	{
-		BYTE(1, "db"),
-		WORD(2, "dw"),
-		DWORD(4, "dd"),
-		QWORD(8, "dq");
-		
-		public final int bytes;
-		public final String d;
-		Size(final int bytes, final String d)
-		{
-			this.bytes = bytes;
-			this.d = d;
-		}
-	}
-	
-	public static class ValueSizeComment
-	{
-		Operand value;
-		Size size;
-		String comment;
-
-		private void init(final Operand value, final Size size, final String comment)
-		{
-			this.value = value;
-			this.size = Utils.orEquals(size, Size.DWORD);
-			this.comment = Utils.orEquals(comment, "");
-		}
-
-		public ValueSizeComment(final String value, final Size size, final String comment)
-		{
-			init(operand(value), size, comment);
-		}
-
-		public ValueSizeComment(final float value, final Size size, final String comment)
-		{
-			init(operand(value), size, comment);
-		}
-
-		public ValueSizeComment(final int value, final Size size, final String comment)
-		{
-			init(operand(value), size, comment);
-		}
-		
-		public ValueSizeComment(final boolean value, final Size size, final String comment)
-		{
-			init(operand(value), size, comment);
-		}
-
-		public ValueSizeComment(final Size size, final String comment)
-		{
-			init(null, size, comment);
-		}
-		
-		public ValueSizeComment(final String value, final Size size)
-		{
-			init(operand(value), size, "");
-		}
-	}
-	
+	/**
+	 * Performs an assignment of the return value from a procedure call.
+	 */
 	public static String assign_call(
 		final Scope scope,
 		final String label,
@@ -953,11 +1106,14 @@ public class Macros
 			assign(
 				scope,
 				label,
-				Utils.orEquals(procOpts.ret.size, Size.DWORD));
+				orEquals(procOpts.ret.size, Size.DWORD));
 		}
 		return call(procOpts);
 	}
 
+	/**
+	 * Performs an assignment of a given value.
+	 */
 	public static String assign_mov(
 		final Scope scope,
 		final String label,
@@ -968,13 +1124,20 @@ public class Macros
 		// TODO: make a mov2 or something that does reverse direction
 		return "mov "+ size.toString().toLowerCase() +" "+ deref(label) +", "+ rm;
 	}
-	
+
+	/**
+	 * x86 `MOV` instruction in NASM syntax.
+	 */
 	public static String mov(final Size size, final String rm, final String label, final String comment)
 	{
+		// TODO: Make this bi-directional
 		return "mov "+ size.toString().toLowerCase() +" "+ rm +", "+ label +"; "+ comment;
 	}
-	
-	public enum Comparison
+
+	/**
+	 * The various x86 conditions allowed by `JMP`, in reference to last `CMP`.
+	 */
+	public enum Compare
 	{
 		EQUAL("E"), ZERO("Z"), // equal
 		NOT_EQUAL("NE"), NOT_ZERO("NZ"), // not equal
@@ -992,15 +1155,19 @@ public class Macros
 		NOT_SIGNED("NS");
 		
 		public String abbrev;
-		Comparison(final String abbrev)
+		Compare(final String abbrev)
 		{
 			this.abbrev = abbrev;
 		}
 	}
+
+	/**
+	 * Conditional near-jump in NASM syntax.
+	 */
 	public static String jmp_if(
 		final Size size,
 		final String a,
-		final Comparison cmp,
+		final Compare cmp,
 		final String b,
 		final String label
 	)
@@ -1008,12 +1175,18 @@ public class Macros
 		return "cmp "+ size.toString().toLowerCase() +" "+ a +", "+ b +"\n"+
 			"j"+ cmp.abbrev.toLowerCase() +" near "+ label;
 	}
-	
+
+	/**
+	 * Near-jump in NASM syntax.
+	 */
 	public static String jmp(final String label)
 	{
 		return "jmp near "+ label;
 	}
 
+	/**
+	 * Return from `CALL`, with return value., in NASM syntax.
+	 */
 	public static String ret(final ValueSizeComment val)
 	{
 		final StringBuilder out = new StringBuilder();
