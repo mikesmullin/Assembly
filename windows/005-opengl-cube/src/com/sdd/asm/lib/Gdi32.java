@@ -2,6 +2,7 @@ package com.sdd.asm.lib;
 
 import java.util.ArrayList;
 import static com.sdd.asm.Macros.*;
+import static com.sdd.asm.Macros.Size.*;
 
 /**
  * Microsoft Windows gdi32.dll APIs
@@ -24,83 +25,82 @@ public class Gdi32
 	public static final int PFD_TYPE_RGBA = 0;
 	public static final int PFD_MAIN_PLANE = 0;
 
-	public static Struct PIXELFORMATDESCRIPTOR = new Struct("PIXELFORMATDESCRIPTOR") {{
-		fields.put("nSize", new StructType(WORD, operand(0, "sizeof(struct)")));
-		fields.put("nVersion", new StructType(WORD, operand(1, "(magic constant)")));
-		fields.put("dwFlags", new StructType(DWORD, operand(0)));
-		fields.put("iPixelType", new StructType(BYTE, operand(0)));
-		fields.put("cColorBits", new StructType(BYTE, operand(0)));
-		fields.put("cRedBits", new StructType(BYTE, operand(0, "(not used)")));
-		fields.put("cRedShift", new StructType(BYTE, operand(0, "(not used)")));
-		fields.put("cGreenBits", new StructType(BYTE, operand(0, "(not used)")));
-		fields.put("cGreenShift", new StructType(BYTE, operand(0, "(not used)")));
-		fields.put("cBlueBits", new StructType(BYTE, operand(0, "(not used)")));
-		fields.put("cBlueShift", new StructType(BYTE, operand(0, "(not used)")));
-		fields.put("cAlphaBits", new StructType(BYTE, operand(0)));
-		fields.put("cAlphaShift", new StructType(BYTE, operand(0, "(not used)")));
-		fields.put("cAccumBits", new StructType(BYTE, operand(0)));
-		fields.put("cAccumRedBits", new StructType(BYTE, operand(0, "(not used)")));
-		fields.put("cAccumGreenBits", new StructType(BYTE, operand(0, "(not used)")));
-		fields.put("cAccumBlueBits", new StructType(BYTE, operand(0, "(not used)")));
-		fields.put("cAccumAlphaBits", new StructType(BYTE, operand(0, "(not used)")));
-		fields.put("cDepthBits", new StructType(BYTE, operand(0)));
-		fields.put("cStencilBits", new StructType(BYTE, operand(0)));
-		fields.put("cAuxBuffers", new StructType(BYTE, operand(0)));
-		fields.put("iLayerType", new StructType(BYTE, operand(0)));
-		fields.put("bReserved", new StructType(BYTE, operand(0, "(not used)")));
-		fields.put("dwLayerMask", new StructType(DWORD, operand(0, "(not used)")));
-		fields.put("dwVisibleMask", new StructType(DWORD, operand(0, "(not used)")));
-		fields.put("dwDamageMask", new StructType(DWORD, operand(0, "(not used)")));
-	}};
+	public static Struct PIXELFORMATDESCRIPTOR = new Struct("PIXELFORMATDESCRIPTOR")
+		.put("nSize", WORD, placeholder("sizeof(struct)"))
+		.put("nVersion", WORD, oper(1).comment("(magic constant)"))
+		.put("dwFlags", DWORD, oper(0))
+		.put("iPixelType", BYTE, oper(0))
+		.put("cColorBits", BYTE, oper(0))
+		.put("cRedBits", BYTE, oper(0).comment("(not used)"))
+		.put("cRedShift", BYTE, oper(0).comment("(not used)"))
+		.put("cGreenBits", BYTE, oper(0).comment("(not used)"))
+		.put("cGreenShift", BYTE, oper(0).comment("(not used)"))
+		.put("cBlueBits", BYTE, oper(0).comment("(not used)"))
+		.put("cBlueShift", BYTE, oper(0).comment("(not used)"))
+		.put("cAlphaBits", BYTE, oper(0))
+		.put("cAlphaShift", BYTE, oper(0).comment("(not used)"))
+		.put("cAccumBits", BYTE, oper(0))
+		.put("cAccumRedBits", BYTE, oper(0).comment("(not used)"))
+		.put("cAccumGreenBits", BYTE, oper(0).comment("(not used)"))
+		.put("cAccumBlueBits", BYTE, oper(0).comment("(not used)"))
+		.put("cAccumAlphaBits", BYTE, oper(0).comment("(not used)"))
+		.put("cDepthBits", BYTE, oper(0))
+		.put("cStencilBits", BYTE, oper(0))
+		.put("cAuxBuffers", BYTE, oper(0))
+		.put("iLayerType", BYTE, oper(0))
+		.put("bReserved", BYTE, oper(0).comment("(not used)"))
+		.put("dwLayerMask", DWORD, oper(0).comment("(not used)"))
+		.put("dwVisibleMask", DWORD, oper(0).comment("(not used)"))
+		.put("dwDamageMask", DWORD, oper(0).comment("(not used)"));
 	static
 	{
-		PIXELFORMATDESCRIPTOR.fields.get("nSize").defaultValue.str =
-			Integer.toString(sizeof(PIXELFORMATDESCRIPTOR));
+		PIXELFORMATDESCRIPTOR.fields.get("nSize")
+			.defaultValue(oper(sizeof(PIXELFORMATDESCRIPTOR)));
 	}
 
 	public static Proc GetDC(
-		final String hWnd
+		final LabelReference hWnd
 	) {
-		return new Proc("GetDC",
-			new ArrayList<ValueSizeComment>(){{
-				add(new ValueSizeComment(hWnd, Size.QWORD, "HWND hWnd"));
+		return new Proc(addrOf(extern(label(Scope.GLOBAL,"GetDC", true))),
+			new ArrayList<SizedOp>(){{
+				add(width(QWORD, oper(hWnd).comment( "HWND hWnd")));
 			}},
-			new ValueSizeComment(Size.QWORD, "HDC"));
+			returnVal(QWORD, "HDC"));
 	}
 	
 	public static Proc ChoosePixelFormat(
-		final String hdc,
-		final String ppfd
+		final LabelReference hdc,
+		final LabelReference ppfd
 	) {
-		return new Proc("ChoosePixelFormat",
-			new ArrayList<ValueSizeComment>(){{
-				add(new ValueSizeComment(hdc, Size.QWORD, "HDC hdc"));
-				add(new ValueSizeComment(ppfd, Size.QWORD, "PIXELFORMATDESCRIPTOR *ppfd"));
+		return new Proc(addrOf(extern(label(Scope.GLOBAL,"ChoosePixelFormat", true))),
+			new ArrayList<SizedOp>(){{
+				add(width(QWORD, oper(hdc).comment("HDC hdc")));
+				add(width(QWORD, oper(ppfd).comment("PIXELFORMATDESCRIPTOR *ppfd")));
 			}},
-			new ValueSizeComment(Size.DWORD, "int"));
+			returnVal(DWORD, "int"));
 	}
 
 	public static Proc SetPixelFormat(
-		final String hdc,
-		final String format,
-		final String ppfd
+		final LabelReference hdc,
+		final LabelReference format,
+		final LabelReference ppfd
 	) {
-		return new Proc("SetPixelFormat",
-			new ArrayList<ValueSizeComment>(){{
-				add(new ValueSizeComment(hdc, Size.QWORD, "HDC hdc"));
-				add(new ValueSizeComment(format, Size.DWORD, "int format"));
-				add(new ValueSizeComment(ppfd, Size.QWORD, "PIXELFORMATDESCRIPTOR *ppfd"));
+		return new Proc(addrOf(extern(label(Scope.GLOBAL,"SetPixelFormat", true))),
+			new ArrayList<SizedOp>(){{
+				add(width(QWORD, oper(hdc).comment("HDC hdc")));
+				add(width(DWORD, oper(format).comment("int format")));
+				add(width(QWORD, oper(ppfd).comment("PIXELFORMATDESCRIPTOR *ppfd")));
 			}},
-			new ValueSizeComment(Size.DWORD, "BOOL"));
+			returnVal(DWORD, "BOOL"));
 	}
 
 	public static Proc SwapBuffers(
-		final String Arg1
+		final LabelReference Arg1
 	) {
-		return new Proc("SwapBuffers",
-			new ArrayList<ValueSizeComment>(){{
-				add(new ValueSizeComment(Arg1, Size.QWORD, "HDC Arg1"));
+		return new Proc(addrOf(extern(label(Scope.GLOBAL,"SwapBuffers", true))),
+			new ArrayList<SizedOp>(){{
+				add(width(QWORD, oper(Arg1).comment("HDC Arg1")));
 			}},
-			new ValueSizeComment(Size.DWORD, "BOOL"));
+			returnVal(DWORD, "BOOL"));
 	}
 }

@@ -1,12 +1,19 @@
 package com.sdd.asm.demo.opengl;
+
 import java.util.HashMap;
 
 import static com.sdd.asm.Macros.*;
+import static com.sdd.asm.Macros.Scope.*;
+import static com.sdd.asm.Macros.Size.*;
+import static com.sdd.asm.Macros.Register.Name.*;
+import static com.sdd.asm.Macros.Compare.*;
 // interfaces
 import static com.sdd.asm.lib.Kernel32.*;
 import static com.sdd.asm.lib.User32.*;
 import static com.sdd.asm.lib.Gdi32.*;
 import static com.sdd.asm.lib.Opengl32.*;
+import static com.sdd.asm.lib.Opengl32.GlParam.*;
+import static com.sdd.asm.lib.Opengl32.GlShaderType.*;
 
 public class Main
 {
@@ -16,104 +23,166 @@ public class Main
 		writeToDisk();
 	}
 	
+	private static String VERTEX_SHADER_SRC = 
+		"attribute vec2 position;\n" + // the position of the point
+		"void main(void) {\n" + // pre-built function
+		"  gl_Position = vec4(position, 0., 1.);\n" + // 0. is the z, and 1 is w
+		"}";
+	
+	private static String FRAGMENT_SHADER_SRC =
+		"precision mediump float;\n" +
+		"void main(void) {\n" +
+		"  gl_FragColor = vec4(0.,0.,0., 1.);\n" + // black color
+		"}";
+	
+	private static Label newShader(
+		final String src,
+		final GlShaderType type
+	) {
+		final Label shader = label(GLOBAL, "glCreateShader__shader");
+		final Label sources = label(GLOBAL, "glShaderSource__sources");
+		final Label lengths = label(GLOBAL, "glShaderSource__lengths");
+		final Label error = label(GLOBAL, "glCompileShader__error");
+		final Label errorLen = label(GLOBAL, "glCompileShader__errorLen");
+		final Label handleError = label(LOCAL, "newShader__handleError");
+		final Label done = label(LOCAL, "newShader__done");
+		data(sources, BYTE, nullstr(src));
+		data(lengths, DWORD, Integer.toString(src.length()));
+		asm( 
+			assign_call(shader, glCreateShader(type)),
+			call(glShaderSource(shader, 1, sources, lengths)),
+			call(glCompileShader(shader)),
+			assign_mov(DWORD, error, oper(0)), // reset error to zero
+			call(glGetShaderiv(shader, GL_COMPILE_STATUS, error)),
+			jmp_if(DWORD, oper(deref(error)), EQUAL, oper(0), handleError),
+			jmp(done),
+			
+			def_label(handleError),
+			assign_call(errorLen, LocalSize(error)),
+			call(Console.log(error, errorLen)),
+			exit(oper(1)),
+			def_label(done));
+		return shader;
+	}
+	
 	private static void build()
 	{
-		final String MainWindow, PixelFormat, IncomingMessage; // struct instances
+		final Label MainWindow, PixelFormat, IncomingMessage; // struct instances
 		asm(comment("GOAL: Render OpenGL spinning 3d cube animation", ""));
 		init();
 
 		section(".text");
+		final Label main = label(EXPORT, "main");
+		final Label uuid = label(GLOBAL, "Generic__uuid");
+		final Label mutex = label(GLOBAL, "CreateMutexA__handle");
+		final Label process = label(GLOBAL, "GetModuleHandleA__hModule");
+		final Label icon = label(GLOBAL,"CreateWindow__icon");
+		final Label cursor = label(GLOBAL, "CreateWindow__cursor");
+		final Label atom = label(GLOBAL, "CreateWindow__atom_name");
+		final Label title = label(GLOBAL, "CreateWindow__title");
+		final Label window = label(GLOBAL, "CreateWindow__hWnd");
+		final Label ctx2d = label(GLOBAL, "GetDC__hDC");
+		final Label pixelFormat = label(GLOBAL, "ChoosePixelFormat__format");
+		final Label success = label(GLOBAL, "Generic__success");
+		data(success, QWORD); // make room for largest possibility
+		final Label ctx = label(GLOBAL, "wglCreateContext__ctx");
+		final Label Loop = label(GLOBAL, "Loop");
+		final Label Render = label(LOCAL, "Render");
+		final Label ProcessMessage = label(LOCAL, "Loop__processMessage");
+		final Label WndProc = label(GLOBAL, "WndProc");
+		final Label hWnd = label(GLOBAL, "WndProc__hWnd");
+		final Label uMsg = label(GLOBAL, "WndProc__uMsg");
+		final Label wParam = label(GLOBAL, "WndProc__wParam");
+		final Label lParam = label(GLOBAL, "WndProc__lParam");
+		final Label WM_Activate = label(LOCAL, "WM_Activate");
+		final Label WM_SysCommand = label(LOCAL, "WM_SysCommand");
+		final Label WM_Close = label(LOCAL, "WM_Close");
+		final Label WM_Destroy = label(LOCAL, "WM_Destroy");
+		final Label WM_KeyDown = label(LOCAL, "WM_KeyDown");
+		final Label WM_KeyUp = label(LOCAL, "WM_KeyUp");
+		final Label WM_Size = label(LOCAL, "WM_Size");
+		final Label WM_Default = label(LOCAL, "default");
+		final Label WM_Zero = label(LOCAL, "return_zero");
 		asm(
-			def_label(Scope.EXPORT, "main"),
+			def_label(main),
 			block("INIT"),
 
 			comment("verify the window is not open twice"),
-			assign_call(Scope.GLOBAL, "CreateMutexA__handle",
-				CreateMutexA(
-					0,
-					true,
-					// generic reusable uuid any time an api function wants a string identifier
-					addrOf(assign(Scope.GLOBAL, "Generic__uuid", Size.BYTE,
-						nullstr("07b62314-d4fc-4704-96e8-c31eb378d815"))))),
+			assign_call(mutex, CreateMutexA(
+				0,
+				true,
+				// generic reusable uuid any time an api function wants a string identifier
+				addrOf(data(uuid, BYTE, nullstr("07b62314-d4fc-4704-96e8-c31eb378d815"))))),
 
 			comment(
 				"get a pointer to this process for use with api functions which require it ",
 				"Note that as of 32-bit Windows, an instance handle (HINSTANCE), such as the",
 				"application instance handle exposed by system function call of WinMain, and",
 				"a module handle (HMODULE) are the same thing."),
-			assign_call(Scope.GLOBAL, "GetModuleHandleA__hModule",
-				GetModuleHandleA(null)),
+			assign_call(process, GetModuleHandleA(Null())),
 	
 			comment("load references to the default icons for new windows"),
-			assign_call(Scope.GLOBAL, "CreateWindow__icon",
-				LoadImageA(null, OIC_WINLOGO, IMAGE_ICON, 
-					0, 0, LR_SHARED | LR_DEFAULTSIZE)),
+			assign_call(icon, LoadImageA(Null(), oper(OIC_WINLOGO), IMAGE_ICON, 
+				0, 0, LR_SHARED | LR_DEFAULTSIZE)),
 	
-			assign_call(Scope.GLOBAL, "CreateWindow__cursor",
-				LoadImageA(null, IDC_ARROW, IMAGE_CURSOR,
-					0, 0, LR_SHARED | LR_DEFAULTSIZE)),
+			assign_call(cursor, LoadImageA(Null(), oper(IDC_ARROW), IMAGE_CURSOR,
+				0, 0, LR_SHARED | LR_DEFAULTSIZE)),
 	
 			comment("begin creating the main local application window"),
-			assign_call(Scope.GLOBAL, "CreateWindow__atom_name",
-				// TODO: maybe use the stack for this
-				// TODO: also, define these within the RegisterClassExA invocation,
-				//       like a struct wth type completion ideally
-				RegisterClassExA(MainWindow = istruct("MainWindow", tagWNDCLASSEXA, new HashMap<String, Operand>(){{
-					put("style", operand(hex( CS_OWNDC | CS_VREDRAW | CS_HREDRAW),
-						"= CS_OWNDC | CS_VREDRAW | CS_HREDRAW"));
-					put("hInstance", operand("GetModuleHandleA__hModule"));
+			assign_call(atom, RegisterClassExA(
+				addrOf(MainWindow = istruct("MainWindow", tagWNDCLASSEXA, new HashMap<String, Operand>(){{
+					put("style", oper( CS_OWNDC | CS_VREDRAW | CS_HREDRAW)
+						.comment("= CS_OWNDC | CS_VREDRAW | CS_HREDRAW"));
+					put("hInstance", oper(addrOf(process)));
 					// NOTICE: the name used there has to be the same as the one used for CreateWindow
-					put("lpszClassName", operand("Generic__uuid"));
-					put("lpfnWndProc", operand("WndProc"));
-					put("hIcon", operand("CreateWindow__icon"));
-					put("hCursor", operand("CreateWindow__cursor"));
-				}}))),
+					put("lpszClassName", oper(addrOf(uuid)));
+					put("lpfnWndProc", oper(addrOf(WndProc)));
+					put("hIcon", oper(addrOf(icon)));
+					put("hCursor", oper(addrOf(cursor)));
+				}})))),
 	
-			assign_call(Scope.GLOBAL, "CreateWindow__hWnd",
-				CreateWindowExA(
-					WS_EX_WINDOWEDGE,
-					addrOf("Generic__uuid"),
-					addrOf(assign(Scope.GLOBAL, "CreateWindow__title",
-						Size.BYTE, nullstr("OpenGL Demo"))),
-					WS_OVERLAPPED | WS_CAPTION | WS_SYSMENU | 
-						WS_THICKFRAME | WS_MINIMIZEBOX | WS_MAXIMIZEBOX |
-						WS_VISIBLE | WS_CLIPCHILDREN | WS_CLIPSIBLINGS,
-					CW_USEDEFAULT,
-					CW_USEDEFAULT,
-					640,
-					480,
-					null,
-					null,
-					addrOf("GetModuleHandleA__hModule"),
-					null
-				)),
-	
-				comment("begin creating the OpenGL context"),
-				assign_call(Scope.GLOBAL, "GetDC__hDC",
-					GetDC(deref("CreateWindow__hWnd"))),
+			assign_call(window, CreateWindowExA(
+				WS_EX_WINDOWEDGE,
+				addrOf(uuid),
+				addrOf(data(title, BYTE, nullstr("OpenGL Demo"))),
+				WS_OVERLAPPED | WS_CAPTION | WS_SYSMENU | 
+					WS_THICKFRAME | WS_MINIMIZEBOX | WS_MAXIMIZEBOX |
+					WS_VISIBLE | WS_CLIPCHILDREN | WS_CLIPSIBLINGS,
+				CW_USEDEFAULT,
+				CW_USEDEFAULT,
+				640,
+				480,
+				Null(),
+				Null(),
+				addrOf(process),
+				Null()
+			)),
+
+			comment("begin creating the OpenGL context"),
+			assign_call(ctx2d, GetDC(deref(window))),
 	
 			// TODO: if full screen: ChangeDisplaySettings, ShowCursor
-			assign_call(Scope.GLOBAL, "ChoosePixelFormat__format",
-				ChoosePixelFormat(
-					deref("GetDC__hDC"),
-					PixelFormat = istruct("PixelFormat", PIXELFORMATDESCRIPTOR, new HashMap<String, Operand>(){{
-						put("dwFlags", operand(hex(PFD_DRAW_TO_WINDOW | PFD_SUPPORT_OPENGL | PFD_DOUBLEBUFFER), "= PFD_DRAW_TO_WINDOW | PFD_SUPPORT_OPENGL | PFD_DOUBLEBUFFER"));
-						put("iPixelType", operand(PFD_TYPE_RGBA, "= PFD_TYPE_RGBA"));
-						// not sure i care to make this based on system capability
-						put("cColorBits", operand(24, "(24-bit color depth)"));
-						put("cAlphaBits", operand(0, "(no alpha buffer)")); 
-						put("cAccumBits", operand(0, "(no accumulation buffer)"));
-						put("cDepthBits", operand(32, "(32-bit z-buffer)"));
-						put("cStencilBits", operand(0, "(no stencil buffer)"));
-						put("cAuxBuffers", operand(0, "(no auxiliary buffer)"));
-						put("iLayerType", operand(PFD_MAIN_PLANE, "= PFD_MAIN_PLANE"));
-					}}))),
+			assign_call(pixelFormat, ChoosePixelFormat(
+				deref(ctx2d),
+				addrOf(PixelFormat = istruct("PixelFormat", PIXELFORMATDESCRIPTOR, new HashMap<String, Operand>(){{
+					put("dwFlags", oper(PFD_DRAW_TO_WINDOW | PFD_SUPPORT_OPENGL | PFD_DOUBLEBUFFER)
+						.comment("= PFD_DRAW_TO_WINDOW | PFD_SUPPORT_OPENGL | PFD_DOUBLEBUFFER"));
+					put("iPixelType", oper(PFD_TYPE_RGBA).comment("= PFD_TYPE_RGBA"));
+					// not sure i care to make this based on system capability
+					put("cColorBits", oper(24).comment("(24-bit color depth)"));
+					put("cAlphaBits", oper(0).comment("(no alpha buffer)")); 
+					put("cAccumBits", oper(0).comment("(no accumulation buffer)"));
+					put("cDepthBits", oper(32).comment("(32-bit z-buffer)"));
+					put("cStencilBits", oper(0).comment("(no stencil buffer)"));
+					put("cAuxBuffers", oper(0).comment("(no auxiliary buffer)"));
+					put("iLayerType", oper(PFD_MAIN_PLANE).comment("= PFD_MAIN_PLANE"));
+				}})))),
 	
-			assign_call(Scope.GLOBAL, "SetPixelFormat__success",
+			assign_call(success,
 				SetPixelFormat(
-					deref("GetDC__hDC"),
-					deref("ChoosePixelFormat__format"),
-					PixelFormat
+					deref(ctx2d),
+					deref(pixelFormat),
+					addrOf(PixelFormat)
 				)),
 	
 			dllimport("opengl32",
@@ -121,106 +190,105 @@ public class Main
 				"wglMakeCurrent",
 				"glClearColor",
 				"glClear",
-				"glGetError"
+				"glGetError"//,
+//				"glCreateShader",
+//				"glShaderSource",
+//				"glCompileShader",
+//				"glGetShaderiv"
 			),
 	
-			assign_call(Scope.GLOBAL, "wglCreateContext__ctx",
-				wglCreateContext(deref("GetDC__hDC"))),
+			assign_call(ctx, wglCreateContext(deref(ctx2d))),
 	
-			assign_call(Scope.GLOBAL, "wglMakeCurrent__success",
-				wglMakeCurrent(deref("GetDC__hDC"), deref("wglCreateContext__ctx"))),
+			assign_call(success, wglMakeCurrent(deref(ctx2d), deref(ctx))),
 	
-			call(
-				glClearColor(0, 0, 1, 1)),
+			call(glClearColor(0, 0, 1, 1)),
 	
-			def_label(Scope.GLOBAL, "Loop"),
+			def_label(Loop),
 	
-			assign_call(Scope.GLOBAL, "PeekMessage_hasMsgs",
-				PeekMessageA(
-					addrOf(IncomingMessage = istruct("IncomingMessage", tagMSG)),
-					deref("CreateWindow__hWnd"),
-					0,
-					0,
-					PM_REMOVE
-				)),
+			assign_call(success, PeekMessageA(
+				addrOf(IncomingMessage = istruct("IncomingMessage", tagMSG)),
+				deref(window),
+				0,
+				0,
+				PM_REMOVE
+			)),
 	
 			comment("if zero messages, skip handling messages"),
-			jmp_if(Size.DWORD, deref("PeekMessage_hasMsgs"), Compare.EQUAL, "0",
-				label(Scope.LOCAL, "Render")),
+			// TODO: make class ImmediateOrLabelReference which encapsulates all possible int, float, etc. inputs and converting them to strings
+			jmp_if(DWORD, oper(deref(success)), EQUAL, oper(0), Render),
 	
 			comment("", "exit if message is WM_QUIT"),
-			jmp_if(Size.DWORD, deref(IncomingMessage +".message"), Compare.NOT_EQUAL, hex(WM_QUIT),
-				label(Scope.LOCAL, "Loop__processMessage")),
+			// TODO: teach istruct to make label members we can .get("field") which return LabelReference
+			jmp_if(DWORD, oper(deref(IncomingMessage.get("message"))), NOT_EQUAL, oper(WM_QUIT), ProcessMessage),
 	
-			exit(0),
+			exit(oper(0)),
 	
-			def_label(Scope.LOCAL, "Loop__processMessage"),
+			def_label(ProcessMessage),
 	
 			call(TranslateMessage(addrOf(IncomingMessage))),
 			call(DispatchMessageA(addrOf(IncomingMessage))),
 	
-			def_label(Scope.LOCAL, "Render"),
+			def_label(Render),
 	
 			call(glClear(GL_COLOR_BUFFER_BIT)),
 	
-			assign_call(Scope.GLOBAL, "SwapBuffers__success",
-				SwapBuffers(deref("GetDC__hDC"))),
+			assign_call(success, SwapBuffers(deref(ctx2d))),
 	
-			jmp("Loop"),
+			jmp(Loop),
 	
-			def_label(Scope.GLOBAL, "WndProc"),
+			def_label(WndProc),
 			comment("move local registers to local shadow space to preserve them"),
-			assign_mov(Scope.GLOBAL, "WndProc__hWnd",   Size.QWORD, "rcx"),
-			assign_mov(Scope.GLOBAL, "WndProc__uMsg",   Size.QWORD, "rdx"),
-			assign_mov(Scope.GLOBAL, "WndProc__wParam", Size.QWORD, "r8"),
-			assign_mov(Scope.GLOBAL, "WndProc__lParam", Size.QWORD, "r9"),
+			assign_mov(QWORD, hWnd, oper(QWORD, C)),
+			assign_mov(QWORD, uMsg, oper(QWORD, D)),
+			assign_mov(QWORD, wParam, oper(QWORD, R8)),
+			assign_mov(QWORD, lParam, oper(QWORD, R9)),
 	
 			comment("switch(uMsg) {"),
-			jmp_if(Size.QWORD, "rdx", Compare.EQUAL, hex(WM_ACTIVATE), label(Scope.LOCAL, "WndProc__WM_Activate")),
-			jmp_if(Size.QWORD, "rdx", Compare.EQUAL, hex(WM_SYSCOMMAND), label(Scope.LOCAL, "WndProc__WM_SysCommand")),
-			jmp_if(Size.QWORD, "rdx", Compare.EQUAL, hex(WM_CLOSE), label(Scope.LOCAL, "WndProc__WM_Close")),
-			jmp_if(Size.QWORD, "rdx", Compare.EQUAL, hex(WM_DESTROY), label(Scope.LOCAL, "WndProc__WM_Destroy")),
-			jmp_if(Size.QWORD, "rdx", Compare.EQUAL, hex(WM_KEYDOWN), label(Scope.LOCAL, "WndProc__WM_KeyDown")),
-			jmp_if(Size.QWORD, "rdx", Compare.EQUAL, hex(WM_KEYUP), label(Scope.LOCAL, "WndProc__WM_KeyUp")),
-			jmp_if(Size.QWORD, "rdx", Compare.EQUAL, hex(WM_SIZE), label(Scope.LOCAL, "WndProc__WM_Size")),
-			def_label(Scope.LOCAL, "WndProc__default"),
+			jmp_if(QWORD, oper(QWORD, D), EQUAL, oper(WM_ACTIVATE), WM_Activate),
+			jmp_if(QWORD, oper(QWORD, D), EQUAL, oper(WM_SYSCOMMAND), WM_SysCommand),
+			jmp_if(QWORD, oper(QWORD, D), EQUAL, oper(WM_CLOSE), WM_Close),
+			jmp_if(QWORD, oper(QWORD, D), EQUAL, oper(WM_DESTROY), WM_Destroy),
+			jmp_if(QWORD, oper(QWORD, D), EQUAL, oper(WM_KEYDOWN), WM_KeyDown),
+			jmp_if(QWORD, oper(QWORD, D), EQUAL, oper(WM_KEYUP), WM_KeyUp),
+			jmp_if(QWORD, oper(QWORD, D), EQUAL, oper(WM_SIZE), WM_Size),
+			def_label(WM_Default),
 			comment("default window procedure handles messages for us"),
-			assign_call(Scope.GLOBAL, "WndProc__return",
-				DefWindowProcA(
-					deref("WndProc__hWnd"),
-					deref("WndProc__uMsg"),
-					deref("WndProc__wParam"),
-					deref("WndProc__lParam")
-				)),
-			ret(new ValueSizeComment(deref("WndProc__return"), Size.QWORD, "")),
+			assign_call(success, DefWindowProcA(
+				deref(hWnd),
+				deref(uMsg),
+				deref(wParam),
+				deref(lParam)
+			)),
+			ret(width(QWORD, oper(deref(success)))),
 
-			def_label(Scope.LOCAL, "WndProc__WM_Activate"),
-			ret(null),
+			def_label(WM_Activate),
+			ret(width(QWORD, Null())),
 
-			def_label(Scope.LOCAL, "WndProc__WM_SysCommand"),
-			mov(Size.DWORD, "ebx", deref("WndProc__wParam"), ""),
-			jmp_if(Size.DWORD, "ebx", Compare.EQUAL, hex(SC_SCREENSAVE), label(Scope.LOCAL, "return_zero")),
-			jmp_if(Size.DWORD, "ebx", Compare.EQUAL, hex(SC_MONITORPOWER), label(Scope.LOCAL, "return_zero")),
-			jmp(label(Scope.LOCAL, "WndProc__default")),
-			def_label(Scope.LOCAL, "return_zero"),
-			ret(null),
+			def_label(WM_SysCommand),
+			// TODO: finish consolidating mov, LabelReference, and bi-directional features
+			mov(DWORD, oper(DWORD, B), oper(deref(wParam))),
+			jmp_if(DWORD, oper(DWORD, B), EQUAL, oper(SC_SCREENSAVE), WM_Zero),
+			jmp_if(DWORD, oper(DWORD, B), EQUAL, oper(SC_MONITORPOWER), WM_Zero),
+			jmp(WM_Default),
+			def_label(WM_Zero),
+			ret(width(QWORD, Null())),
 	
-			def_label(Scope.LOCAL, "WndProc__WM_Close"),
-			call(DestroyWindow(deref("CreateWindow__hWnd"))),
-			ret(null),
+			def_label(WM_Close),
+			call(DestroyWindow(deref(window))),
+			ret(width(QWORD, Null())),
 	
-			def_label(Scope.LOCAL, "WndProc__WM_Destroy"),
+			def_label(WM_Destroy),
 			call(PostQuitMessage(0)),
-			ret(null),
+			ret(width(QWORD, Null())),
 	
-			def_label(Scope.LOCAL, "WndProc__WM_KeyDown"),
-			ret(null),
+			def_label(WM_KeyDown),
+			ret(width(QWORD, Null())),
 	
-			def_label(Scope.LOCAL, "WndProc__WM_KeyUp"),
-			ret(null),
+			def_label(WM_KeyUp),
+			ret(width(QWORD, Null())),
 
-			def_label(Scope.LOCAL, "WndProc__WM_Size"),
-			ret(null),
+			def_label(WM_Size),
+			ret(width(QWORD, Null())),
 
 			block("PROCS")
 		);

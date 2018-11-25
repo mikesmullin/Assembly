@@ -2,6 +2,7 @@ package com.sdd.asm.lib;
 
 import java.util.ArrayList;
 import static com.sdd.asm.Macros.*;
+import static com.sdd.asm.Macros.Size.*;
 
 /**
  * Microsoft Windows user32.dll APIs
@@ -15,41 +16,41 @@ import static com.sdd.asm.Macros.*;
  */
 public class User32
 {
-	public static final Type UINT = new Type("UINT", Size.DWORD);
-	public static final Type WNDPROC = new Type("WNDPROC", Size.QWORD);
-	public static final Type _int = new Type("int", Size.DWORD);
-	public static final Type HINSTANCE = new Type("HINSTANCE", Size.QWORD);
-	public static final Type HICON = new Type("HICON", Size.QWORD);
-	public static final Type HCURSOR = new Type("HCURSOR", Size.QWORD);
-	public static final Type HBRUSH = new Type("HBRUSH", Size.QWORD);
-	public static final Type LPCSTR = new Type("LPCSTR", Size.QWORD);
+	public static final CustomType UINT = new CustomType(DWORD, "UINT");
+	public static final CustomType WNDPROC = new CustomType(QWORD, "WNDPROC");
+	public static final CustomType INT = new CustomType(DWORD, "int");
+	public static final CustomType HINSTANCE = new CustomType(QWORD, "HINSTANCE");
+	public static final CustomType HICON = new CustomType(QWORD, "HICON");
+	public static final CustomType HCURSOR = new CustomType(QWORD, "HCURSOR");
+	public static final CustomType HBRUSH = new CustomType(QWORD, "HBRUSH");
+	public static final CustomType LPCSTR = new CustomType(QWORD, "LPCSTR");
 
-	public static final Type HWND = new Type("HWND", Size.QWORD);
-	// public static final Type POINT = new Type("POINT", Size.QWORD);
-	public static final Type WPARAM = new Type("WPARAM", Size.QWORD);
-	public static final Type LPARAM = new Type("LPARAM", Size.QWORD);
+	public static final CustomType HWND = new CustomType(QWORD, "HWND");
+	// public static final StructType POINT = new StructTypeQWORD("POINT");
+	public static final CustomType WPARAM = new CustomType(QWORD, "WPARAM");
+	public static final CustomType LPARAM = new CustomType(QWORD, "LPARAM");
 
 	public static final int CS_VREDRAW = 0x0001;
 	public static final int CS_HREDRAW = 0x0002;
 	public static final int CS_OWNDC   = 0x0020;
 
-	public static Struct tagWNDCLASSEXA = new Struct("tagWNDCLASSEXA") {{
-		fields.put("cbSize", new StructType(UINT));
-		fields.put("style", new StructType(UINT));
-		fields.put("lpfnWndProc", new StructType(WNDPROC));
-		fields.put("cbClsExtra", new StructType(_int, operand(null)));
-		fields.put("cbWndExtra", new StructType(_int, operand(null)));
-		fields.put("hInstance", new StructType(HINSTANCE));
-		fields.put("hIcon", new StructType(HICON, operand(null)));
-		fields.put("hCursor", new StructType(HCURSOR));
-		fields.put("hbrBackground", new StructType(HBRUSH, operand(null))); // 0 is required for OpenGL Context
-		fields.put("lpszMenuName", new StructType(LPCSTR, operand(null)));
-		fields.put("lpszClassName", new StructType(LPCSTR));
-		fields.put("hIconSm", new StructType(HICON, operand(null)));
-	}};
+	public static Struct tagWNDCLASSEXA = new Struct("tagWNDCLASSEXA")
+		.put("cbSize", UINT)
+		.put("style", UINT)
+		.put("lpfnWndProc", WNDPROC)
+		.put("cbClsExtra", INT, Null())
+		.put("cbWndExtra", INT, Null())
+		.put("hInstance", HINSTANCE)
+		.put("hIcon", HICON)
+		.put("hCursor", HCURSOR)
+		.put("hbrBackground", HBRUSH, Null()) // 0 is required for OpenGL Context
+		.put("lpszMenuName", LPCSTR, Null())
+		.put("lpszClassName", LPCSTR)
+		.put("hIconSm", HICON, Null());
 	static
 	{
-		tagWNDCLASSEXA.fields.get("cbSize").defaultValue = operand(sizeof(tagWNDCLASSEXA));
+		tagWNDCLASSEXA.fields.get("cbSize")
+			.defaultValue(oper(sizeof(tagWNDCLASSEXA)));
 	}
 
 	public static final int OIC_WINLOGO = 32517;
@@ -60,35 +61,34 @@ public class User32
 	public static final int LR_SHARED = 0x00008000;
 
 	public static Proc LoadImageA(
-		final String hInst,
-		final int name, // can be int or String; can make overload when that is needed
+		final Operand hInst,
+		final Operand name, // can be int or String; can make overload when that is needed
 		final int type,
 		final int cx,
 		final int cy,
 		final int fuLoad
 	) {
-		return new Proc("LoadImageA",
-			new ArrayList<ValueSizeComment>() {{
-				add(new ValueSizeComment(hInst, Size.DWORD, "HINSTANCE hInst"));
-				add(new ValueSizeComment(name, Size.DWORD, "LPCSTR name"));
-				add(new ValueSizeComment(type, Size.DWORD, "UINT type"));
-				add(new ValueSizeComment(cx, Size.DWORD, "int cx"));
-				add(new ValueSizeComment(cy, Size.DWORD, "int cy"));
-				add(new ValueSizeComment(hex(fuLoad), Size.DWORD, "UINT fuLoad"));
+		return new Proc(addrOf(extern(label(Scope.GLOBAL,"LoadImageA", true))),
+			new ArrayList<SizedOp>() {{
+				add(width(DWORD, hInst.comment("HINSTANCE hInst")));
+				add(width(DWORD, name.comment("LPCSTR name")));
+				add(width(DWORD, oper(type).comment("UINT type")));
+				add(width(DWORD, oper(cx).comment("int cx")));
+				add(width(DWORD, oper(cy).comment("int cy")));
+				add(width(DWORD, oper(fuLoad).comment("UINT fuLoad")));
 			}},
-			new ValueSizeComment(Size.QWORD, "HANDLE"));
+			width(QWORD, placeholder("HANDLE")));
 	}
 
-	public static Struct tagMSG = new Struct("tagMSG") {{
-		fields.put("hwnd", new StructType(HWND, operand(0)));
-		fields.put("message", new StructType(UINT, operand(0)));
-		fields.put("wParam", new StructType(WPARAM, operand(0)));
-		fields.put("lParam", new StructType(LPARAM, operand(0)));
-		fields.put("time", new StructType(DWORD, operand(0)));
-		fields.put("pt.x", new StructType(DWORD, operand(0)));
-		fields.put("pt.y", new StructType(DWORD, operand(0)));
-		fields.put("lPrivate", new StructType(DWORD, operand(0)));
-	}};
+	public static Struct tagMSG = new Struct("tagMSG")
+		.put("hwnd", HWND, oper(0))
+		.put("message", UINT, oper(0))
+		.put("wParam", WPARAM, oper(0))
+		.put("lParam", LPARAM, oper(0))
+		.put("time", DWORD, oper(0))
+		.put("pt.x", DWORD, oper(0))
+		.put("pt.y", DWORD, oper(0))
+		.put("lPrivate", DWORD, oper(0));
 
 	public static final int PM_REMOVE       = 0x0001;
 	public static final int WM_QUIT         = 0x0012;
@@ -104,31 +104,31 @@ public class User32
 	public static final int SC_MONITORPOWER = 0x0F170;
 	
 	public static Proc PeekMessageA(
-		final String lpMsg,
-		final String hWnd,
+		final LabelReference lpMsg,
+		final LabelReference hWnd,
 		final int wMsgFilterMin,
 		final int wMsgFilterMax,
 		final int wRemoveMsg
 	) {
-		return new Proc("PeekMessageA",
-			new ArrayList<ValueSizeComment>() {{
-				add(new ValueSizeComment(lpMsg, Size.QWORD, "LPMSG lpMsg"));
-				add(new ValueSizeComment(hWnd, Size.QWORD, "HWND hWnd"));
-				add(new ValueSizeComment(wMsgFilterMin, Size.DWORD, "UINT wMsgFilterMin"));
-				add(new ValueSizeComment(wMsgFilterMax, Size.DWORD, "UINT wMsgFilterMax"));
-				add(new ValueSizeComment(wRemoveMsg, Size.DWORD, "UINT wRemoveMsg"));
+		return new Proc(addrOf(extern(label(Scope.GLOBAL,"PeekMessageA", true))),
+			new ArrayList<SizedOp>() {{
+				add(width(QWORD, oper(lpMsg).comment("LPMSG lpMsg")));
+				add(width(QWORD, oper(hWnd).comment("HWND hWnd")));
+				add(width(DWORD, oper(wMsgFilterMin).comment("UINT wMsgFilterMin")));
+				add(width(DWORD, oper(wMsgFilterMax).comment("UINT wMsgFilterMax")));
+				add(width(DWORD, oper(wRemoveMsg).comment("UINT wRemoveMsg")));
 			}},
-			new ValueSizeComment(Size.DWORD, "BOOL"));
+			returnVal(DWORD, "BOOL"));
 	}
 	
 	public static Proc RegisterClassExA(
-		final String Arg1
+		final LabelReference Arg1
 	) {
-		return new Proc("RegisterClassExA",
-			new ArrayList<ValueSizeComment>() {{
-				add(new ValueSizeComment(Arg1, Size.QWORD, "WNDCLASSEXA *Arg1"));
+		return new Proc(addrOf(extern(label(Scope.GLOBAL,"RegisterClassExA", true))),
+			new ArrayList<SizedOp>() {{
+				add(width(QWORD, oper(Arg1).comment("WNDCLASSEXA *Arg1")));
 			}},
-			new ValueSizeComment(Size.QWORD, "HANDLE"));
+			returnVal(QWORD, "HANDLE"));
 	}
 
 	public static final int WS_EX_WINDOWEDGE = 0x00000100;
@@ -147,86 +147,86 @@ public class User32
 
 	public static Proc CreateWindowExA(
 		final int dwExStyle,
-		final String lpClassName,
-		final String lpWindowName,
+		final LabelReference lpClassName,
+		final LabelReference lpWindowName,
 		final int dwStyle,
 		final int x,
 		final int y,
 		final int nWidth,
 		final int nHeight,
-		final String hWndParent,
-		final String hMenu,
-		final String hInstance,
-		final String lpParam
+		final Operand hWndParent,
+		final Operand hMenu,
+		final LabelReference hInstance,
+		final Operand lpParam
 	) {
-		return new Proc("CreateWindowExA",
-			new ArrayList<ValueSizeComment>(){{
-				add(new ValueSizeComment(dwExStyle, Size.QWORD, "DWORD dwExStyle"));
+		return new Proc(addrOf(extern(label(Scope.GLOBAL,"CreateWindowExA", true))),
+			new ArrayList<SizedOp>(){{
+				add(width(QWORD, oper(dwExStyle).comment("DWORD dwExStyle")));
 				// NOTICE: the name used there has to be the same as the one used for RegisterClass
-				add(new ValueSizeComment(lpClassName, Size.QWORD, "LPCSTR lpClassName"));
-				add(new ValueSizeComment(lpWindowName, Size.QWORD, "LPCSTR lpWindowName"));
-				add(new ValueSizeComment(hex(dwStyle), Size.QWORD, "DWORD dwStyle"));
-				add(new ValueSizeComment(hex(x), Size.DWORD, "int X"));
-				add(new ValueSizeComment(hex(y), Size.DWORD, "int Y"));
-				add(new ValueSizeComment(nWidth, Size.DWORD, "int nWidth"));
-				add(new ValueSizeComment(nHeight, Size.DWORD, "int nHeight"));
-				add(new ValueSizeComment(hWndParent, Size.QWORD, "HWND hWndParent"));
-				add(new ValueSizeComment(hMenu, Size.QWORD, "HMENU hMenu"));
-				add(new ValueSizeComment(hInstance, Size.QWORD, "HINSTANCE hInstance"));
-				add(new ValueSizeComment(lpParam, Size.QWORD, "LPVOID lpParam"));
+				add(width(QWORD, oper(lpClassName).comment("LPCSTR lpClassName")));
+				add(width(QWORD, oper(lpWindowName).comment("LPCSTR lpWindowName")));
+				add(width(QWORD, oper(dwStyle).comment("DWORD dwStyle")));
+				add(width(DWORD, oper(x).comment("int X")));
+				add(width(DWORD, oper(y).comment("int Y")));
+				add(width(DWORD, oper(nWidth).comment("int nWidth")));
+				add(width(DWORD, oper(nHeight).comment("int nHeight")));
+				add(width(QWORD, hWndParent.comment("HWND hWndParent")));
+				add(width(QWORD, hMenu.comment("HMENU hMenu")));
+				add(width(QWORD, oper(hInstance).comment("HINSTANCE hInstance")));
+				add(width(QWORD, lpParam.comment("LPVOID lpParam")));
 			}},
-			new ValueSizeComment(Size.QWORD, "HANDLE"));
+			returnVal(QWORD, "HANDLE"));
 	}
 
 	public static Proc TranslateMessage(
-		final String lpMsg
+		final LabelReference lpMsg
 	) {
-		return new Proc("TranslateMessage",
-			new ArrayList<ValueSizeComment>(){{
-				add(new ValueSizeComment(lpMsg, Size.QWORD, "LPMSG lpMsg"));
+		return new Proc(addrOf(extern(label(Scope.GLOBAL,"TranslateMessage", true))),
+			new ArrayList<SizedOp>(){{
+				add(width(QWORD, oper(lpMsg).comment("LPMSG lpMsg")));
 			}});
 	}
 
 	public static Proc DispatchMessageA(
-		final String lpMsg
+		final LabelReference lpMsg
 	) {
-		return new Proc("DispatchMessageA",
-			new ArrayList<ValueSizeComment>(){{
-				add(new ValueSizeComment(lpMsg, Size.QWORD, "LPMSG lpMsg"));
+		return new Proc(addrOf(extern(label(Scope.GLOBAL,"DispatchMessageA", true))),
+			new ArrayList<SizedOp>(){{
+				add(width(QWORD, oper(lpMsg).comment("LPMSG lpMsg")));
 			}});
 	}
 
 	public static Proc DefWindowProcA(
-		final String hWnd,
-		final String Msg,
-		final String wParam,
-		final String lParam
+		final LabelReference hWnd,
+		final LabelReference Msg,
+		final LabelReference wParam,
+		final LabelReference lParam
 	) {
-		return new Proc("DefWindowProcA",
-			new ArrayList<ValueSizeComment>(){{
-				add(new ValueSizeComment(hWnd, Size.QWORD, "HWND hWnd"));
-				add(new ValueSizeComment(Msg, Size.QWORD, "UINT Msg"));
-				add(new ValueSizeComment(wParam, Size.QWORD, "WPARAM wParam"));
-				add(new ValueSizeComment(lParam, Size.QWORD, "LPARAM lParam"));
+		return new Proc(addrOf(extern(label(Scope.GLOBAL,"DefWindowProcA", true))),
+			new ArrayList<SizedOp>(){{
+				add(width(QWORD, oper(hWnd).comment("HWND hWnd")));
+				add(width(QWORD, oper(Msg).comment("UINT Msg")));
+				add(width(QWORD, oper(wParam).comment("WPARAM wParam")));
+				add(width(QWORD, oper(lParam).comment("LPARAM lParam")));
 			}},
-			new ValueSizeComment(Size.QWORD, "LRESULT"));
+			width(QWORD, placeholder("LRESULT")));
 	}
 
 	public static Proc DestroyWindow(
-		final String hWnd
+		final LabelReference hWnd
 	) {
-		return new Proc("DestroyWindow",
-			new ArrayList<ValueSizeComment>(){{
-				add(new ValueSizeComment(hWnd, Size.QWORD, "HWND hWnd"));
+		return new Proc(addrOf(extern(label(Scope.GLOBAL,"DestroyWindow", true))),
+			new ArrayList<SizedOp>(){{
+				add(width(QWORD, oper(hWnd).comment("HWND hWnd")));
 			}});
 	}
 
 	public static Proc PostQuitMessage(
 		final int nExitCode
 	) {
-		return new Proc("PostQuitMessage",
-			new ArrayList<ValueSizeComment>(){{
-				add(new ValueSizeComment(nExitCode, Size.DWORD, "int nExitCode"));
+		return new Proc(addrOf(extern(label(Scope.GLOBAL,"PostQuitMessage", true))),
+			new ArrayList<SizedOp>(){{
+				add(width(DWORD, oper(nExitCode).comment("int nExitCode")));
 			}});
 	}
 }

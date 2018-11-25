@@ -1,37 +1,31 @@
-try solving that annoying "Invalid window handle." error when loop is properly constructed
+; GetSystemMetrics ; ie. screen dimensions
 
+; glShadeModel
+x glClearColor
+- glClearDepth
+- glEnable
+- glDepthFunc
+- glHint
 
-// GetSystemMetrics ; ie. screen dimensions
+; on resize:
+- glViewport
+- glMatrixMode
+- glLoadIdentity
+- gluPerspective
+- glMatrixMode
+- glLoadIdentity
 
-// glShadeModel
-// glClearColor
-// glClearDepth
-// glEnable
-// glDepthFunc
-// glHint
+; on draw loop:
+x glClear
+- glLoadIdentity
+- glEnd
 
-// on resize:
-// glViewport
-// glMatrixMode
-// glLoadIdentity
-// gluPerspective
-// glMatrixMode
-// glLoadIdentity
-
-// on draw loop:
-// glClear
-// glLoadIdentity
-// glEnd
-
-// on shutdown:
-// if fullscreen:
-	// ChangeDisplaySettings
-	// ShowCursor
-// wglMakeCurrent
-// wglDeleteContext
-// ReleaseDC
-// FreeLibrary opengl
-// DestroyWindow
+; on shutdown:
+- wglMakeCurrent
+- wglDeleteContext
+- ReleaseDC
+- FreeLibrary opengl
+- DestroyWindow
 
 
 
@@ -46,12 +40,9 @@ TODO: use the stack for all variables? like in macros build a stack frame refere
 	which would be slower
 	better think about this more
 
+TODO: try solving that annoying "Invalid window handle." error when loop is properly constructed
 TODO: could make it so i don't check for GetLastError unless a proc returns 0
-TODO: output to log file in relative path instead of showing console window
-
-
-
-
+TODO: output to log file in relative path instead of showing console window (and showing a console behind the normal window)
 
 how to define the gl perspective (without glu)
   yes glu is old and an alternative should be sought

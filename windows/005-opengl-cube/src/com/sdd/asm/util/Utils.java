@@ -22,4 +22,14 @@ public class Utils
 	public interface Callback2<T1,T2,T3> {
 		T3 call(T1 a, T2 b);
 	}
+
+	public static boolean isEmpty(final String s)
+	{
+		return null == s || "".equals(s.trim());
+	}
+
+	public static String joinUnlessEmpty(final String a, final String delim, final String b)
+	{
+		return "" + (isEmpty(a) ? "" : a + delim) + b;
+	}
 }
