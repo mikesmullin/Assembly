@@ -797,8 +797,6 @@ public class Macros
 		label(LOCAL, "glError");
 	private static final Label gl_error_code =
 		label(GLOBAL, "glGetError__code");
-	private static final Label gl_error_string =
-		label(GLOBAL, "glGetError__str");
 	static {
 		onready(()->{
 			blocks.get("PROCS").append(join(
@@ -809,8 +807,7 @@ public class Macros
 
 				def_label(gl_handle_error),
 				printf(setConvention(Macros::__ms_fastcall_64,
-					FormatString(gl_error_string, 
-						"glError %1!.8llX!\n", gl_error_code)),
+					FormatString("glError %1!.8llX!\n", gl_error_code)),
 					// avoid recursively checking for errors
 					(a,b)->setConvention(Macros::__ms_fastcall_64, Console.log(a,b))),
 				exit(oper(deref(gl_error_code)))));
@@ -834,7 +831,7 @@ public class Macros
 			data(exit_code, DWORD);
 			blocks.get("PROCS").append(join(
 				def_label(exit_label),
-				call(ExitProcess(addrOf(exit_code))),
+				call(ExitProcess(deref(exit_code))),
 				// the following _should_ be unnecessary if correctly exits
 				"ret",
 				jmp(exit_label)));
@@ -894,7 +891,7 @@ public class Macros
 				oper(dwMessageId),
 				LANG_USER_DEFAULT__SUBLANG_DEFAULT,
 				addrOf(format_buffer),
-				addrOf(format_length),
+				FORMAT_BUFFER_SIZE,
 				Null()));
 	}
 
@@ -903,19 +900,19 @@ public class Macros
 	 * Meant primarily for use with `printf()` function/
 	 */
 	public static Proc FormatString(
-		final Label formatStringLabel,
-		final String formatString,
+		final String format,
 		final Label arrayPtr
 	) {
-		data(formatStringLabel, BYTE, nullstr(formatString));
+		final Label label = label(GLOBAL, "FormatString");
+		data(label, BYTE, nullstr(format));
 		return FormatMessageA(
 			FORMAT_MESSAGE_ARGUMENT_ARRAY |
 				FORMAT_MESSAGE_FROM_STRING,
-			oper(addrOf(formatStringLabel)),
+			oper(addrOf(label)),
 			Null(),
 			0,
 			addrOf(format_buffer),
-			addrOf(format_length),
+			FORMAT_BUFFER_SIZE,
 			oper(addrOf(arrayPtr)));
 	};
 
@@ -950,8 +947,8 @@ public class Macros
 			data(Console.bytesWritten, DWORD);
 			blocks.get("INIT").append(join(
 				comment("get pointers to stdout/stderr pipes"),
-				assign_call(Console.stdout, GetStdHandle(STD_ERROR_HANDLE)),
-				assign_call(Console.stderr, GetStdHandle(STD_OUTPUT_HANDLE))));
+				assign_call(Console.stderr, GetStdHandle(STD_ERROR_HANDLE)),
+				assign_call(Console.stdout, GetStdHandle(STD_OUTPUT_HANDLE))));
 		});
 	}
 	/**
@@ -962,10 +959,10 @@ public class Macros
 	{
 		static final Label bytesWritten =
 			label(GLOBAL, "WriteFile__bytesWritten");
-		static final Label stdout =
-			label(GLOBAL, "Console__stdout_nStdHandle");
 		static final Label stderr =
 			label(GLOBAL, "Console__stderr_nStdHandle");
+		static final Label stdout =
+			label(GLOBAL, "Console__stdout_nStdHandle");
 
 		public static Proc log(final Label str, final Label len)
 		{

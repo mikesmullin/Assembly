@@ -31,10 +31,10 @@ FormatMessage__length: dd 0
 printf__success: dd 0
 ExitProcess__code: dd 0
 glGetError__code: dd 0
-glGetError__str: db "glError %1!.8llX!",10,0
+FormatString: db "glError %1!.8llX!",10,0
 WriteFile__bytesWritten: dd 0
-Console__stdout_nStdHandle: dd 0
 Console__stderr_nStdHandle: dd 0
+Console__stdout_nStdHandle: dd 0
 Generic__success: dq 0
 Generic__uuid: db "07b62314-d4fc-4704-96e8-c31eb378d815",0
 CreateMutexA__handle: dq 0
@@ -104,7 +104,13 @@ GetProcAddress__glClear: db "glClear",0
 glClear: dq 0
 GetProcAddress__glGetError: db "glGetError",0
 glGetError: dq 0
+GetProcAddress__glGetString: db "glGetString",0
+glGetString: dq 0
+GetProcAddress__wglGetProcAddress: db "wglGetProcAddress",0
+wglGetProcAddress: dq 0
 wglCreateContext__ctx: dq 0
+glString: dq 0
+FormatString_1: db "GL_VERSION: %1",10,0
 F0_0: dq 0x0
 F1_0: dq 0x3f800000
 
@@ -133,7 +139,7 @@ main:
     sub rsp, 40 ; allocate shadow space
     mov dword ecx, 0xfffffff4 ; 1st = -12 DWORD nStdHandle
 call GetStdHandle
-    mov dword [Console__stdout_nStdHandle], eax ; return HANDLE
+    mov dword [Console__stderr_nStdHandle], eax ; return HANDLE
     add rsp, 40 ; deallocate shadow space
     call GetLastError__epilogue_check
 
@@ -142,7 +148,7 @@ call GetStdHandle
     sub rsp, 40 ; allocate shadow space
     mov dword ecx, 0xfffffff5 ; 1st = -11 DWORD nStdHandle
 call GetStdHandle
-    mov dword [Console__stderr_nStdHandle], eax ; return HANDLE
+    mov dword [Console__stdout_nStdHandle], eax ; return HANDLE
     add rsp, 40 ; deallocate shadow space
     call GetLastError__epilogue_check
 
@@ -322,6 +328,26 @@ call GetProcAddress
     add rsp, 40 ; deallocate shadow space
     call GetLastError__epilogue_check
 
+    call GetLastError__prologue_reset
+    ; MS __fastcall x64 ABI
+    sub rsp, 40 ; allocate shadow space
+    mov dword edx, GetProcAddress__glGetString ; 2nd LPCSTR lpProcName
+    mov qword rcx, [LoadLibraryA__opengl32_hModule] ; 1st HMODULE hModule
+call GetProcAddress
+    mov qword [glGetString], rax ; return FARPROC
+    add rsp, 40 ; deallocate shadow space
+    call GetLastError__epilogue_check
+
+    call GetLastError__prologue_reset
+    ; MS __fastcall x64 ABI
+    sub rsp, 40 ; allocate shadow space
+    mov dword edx, GetProcAddress__wglGetProcAddress ; 2nd LPCSTR lpProcName
+    mov qword rcx, [LoadLibraryA__opengl32_hModule] ; 1st HMODULE hModule
+call GetProcAddress
+    mov qword [wglGetProcAddress], rax ; return FARPROC
+    add rsp, 40 ; deallocate shadow space
+    call GetLastError__epilogue_check
+
 
     call GetLastError__prologue_reset
     ; MS __fastcall x64 ABI
@@ -341,6 +367,44 @@ call [wglMakeCurrent]
     mov dword [Generic__success], eax ; return BOOL
     add rsp, 40 ; deallocate shadow space
     call GetLastError__epilogue_check
+
+    call GetLastError__prologue_reset
+    ; MS __fastcall x64 ABI
+    sub rsp, 40 ; allocate shadow space
+    mov qword rcx, 0x1f02 ; 1st = 7938 GL_VERSION GLenum name
+call [glGetString]
+    mov qword [glString], rax ; return GLubyte* WINAPI
+    add rsp, 40 ; deallocate shadow space
+    call GetLastError__epilogue_check
+
+    call GetLastError__prologue_reset
+    ; MS __fastcall x64 ABI
+    sub rsp, 64 ; allocate shadow space
+    mov qword [rsp + 48], glString ; 7th va_list *Arguments
+    mov qword [rsp + 40], 0x100 ; 6th = 256 DWORD nSize
+    mov qword [rsp + 32], FormatMessage__buffer ; 5th LPSTR lpBuffer
+    mov dword r9d, 0 ; 4th DWORD dwLanguageId
+    mov dword r8d, 0 ; 3rd = NULL DWORD dwMessageId
+    mov dword edx, FormatString_1 ; 2nd LPCVOID lpSource
+    mov dword ecx, 0x2400 ; 1st = 9216 DWORD dwFlags
+call FormatMessageA
+    mov dword [FormatMessage__length], eax ; return DWORD TCHARs written
+    add rsp, 64 ; deallocate shadow space
+    call GetLastError__epilogue_check
+
+    call GetLastError__prologue_reset
+    ; MS __fastcall x64 ABI
+    sub rsp, 48 ; allocate shadow space
+    mov dword [rsp + 32], 0 ; 5th = NULL LPOVERLAPPED lpOverlapped
+    mov dword r9d, WriteFile__bytesWritten ; 4th LPDWORD lpNumberOfBytesWritten
+    mov dword r8d, [FormatMessage__length] ; 3rd DWORD nNumberOfBytesToWrite
+    mov dword edx, FormatMessage__buffer ; 2nd LPCVOID lpBuffer
+    mov dword ecx, [Console__stdout_nStdHandle] ; 1st HANDLE hFile
+call WriteFile
+    mov dword [printf__success], eax ; return BOOL
+    add rsp, 48 ; deallocate shadow space
+    call GetLastError__epilogue_check
+
 
     ; MS __fastcall x64 ABI
     sub rsp, 40 ; allocate shadow space
@@ -519,7 +583,7 @@ ret
     ; MS __fastcall x64 ABI
     sub rsp, 64 ; allocate shadow space
     mov qword [rsp + 48], 0 ; 7th = NULL va_list *Arguments
-    mov qword [rsp + 40], FormatMessage__length ; 6th DWORD nSize
+    mov qword [rsp + 40], 0x100 ; 6th = 256 DWORD nSize
     mov qword [rsp + 32], FormatMessage__buffer ; 5th LPSTR lpBuffer
     mov dword r9d, 0x400 ; 4th = 1024 DWORD dwLanguageId
     mov dword r8d, [GetLastError__errCode] ; 3rd DWORD dwMessageId
@@ -560,11 +624,11 @@ ret
     ; MS __fastcall x64 ABI
     sub rsp, 64 ; allocate shadow space
     mov qword [rsp + 48], glGetError__code ; 7th va_list *Arguments
-    mov qword [rsp + 40], FormatMessage__length ; 6th DWORD nSize
+    mov qword [rsp + 40], 0x100 ; 6th = 256 DWORD nSize
     mov qword [rsp + 32], FormatMessage__buffer ; 5th LPSTR lpBuffer
     mov dword r9d, 0 ; 4th DWORD dwLanguageId
     mov dword r8d, 0 ; 3rd = NULL DWORD dwMessageId
-    mov dword edx, glGetError__str ; 2nd LPCVOID lpSource
+    mov dword edx, FormatString ; 2nd LPCVOID lpSource
     mov dword ecx, 0x2400 ; 1st = 9216 DWORD dwFlags
 call FormatMessageA
     mov dword [FormatMessage__length], eax ; return DWORD TCHARs written
@@ -591,7 +655,7 @@ Exit:
     call GetLastError__prologue_reset
     ; MS __fastcall x64 ABI
     sub rsp, 40 ; allocate shadow space
-    mov qword rcx, ExitProcess__code ; 1st UINT uExitCode
+    mov qword rcx, [ExitProcess__code] ; 1st UINT uExitCode
 call ExitProcess
     add rsp, 40 ; deallocate shadow space
     call GetLastError__epilogue_check

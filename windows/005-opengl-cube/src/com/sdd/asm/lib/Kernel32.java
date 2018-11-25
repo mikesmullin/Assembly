@@ -79,7 +79,7 @@ public class Kernel32
 		final Operand dwMessageId,
 		final int dwLanguageId,
 		final LabelReference lpBuffer,
-		final LabelReference nSize,
+		final int nSize,
 		final Operand Arguments
 	) {
 		return new Proc(addrOf(extern(label(Scope.GLOBAL,"FormatMessageA", true))),

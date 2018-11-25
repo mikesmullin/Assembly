@@ -103,6 +103,7 @@ public class Main
 		final Label WM_Size = label(LOCAL, "WM_Size");
 		final Label WM_Default = label(LOCAL, "default");
 		final Label WM_Zero = label(LOCAL, "return_zero");
+		final Label glString = label(GLOBAL, "glString");
 		asm(
 			def_label(main),
 			block("INIT"),
@@ -185,22 +186,28 @@ public class Main
 					addrOf(PixelFormat)
 				)),
 	
-			dllimport("opengl32",
-				"wglCreateContext",
-				"wglMakeCurrent",
-				"glClearColor",
-				"glClear",
-				"glGetError"//,
-//				"glCreateShader",
-//				"glShaderSource",
-//				"glCompileShader",
-//				"glGetShaderiv"
+			dllimport("opengl32"
+				,"wglCreateContext"
+				,"wglMakeCurrent"
+				,"glClearColor"
+				,"glClear"
+				,"glGetError"
+				,"glGetString"
+				,"wglGetProcAddress"
+//				,"glCreateShader"
+//				,"glShaderSource"
+//				,"glCompileShader"
+//				,"glGetShaderiv"
 			),
-	
+			
 			assign_call(ctx, wglCreateContext(deref(ctx2d))),
 	
 			assign_call(success, wglMakeCurrent(deref(ctx2d), deref(ctx))),
 	
+			assign_call(glString, glGetString(oper(GL_VERSION).comment("GL_VERSION"))),
+			printf(FormatString( "GL_VERSION: %1\n", glString), Console::log),
+//			exit(oper(0)),
+			
 			call(glClearColor(0, 0, 1, 1)),
 	
 			def_label(Loop),

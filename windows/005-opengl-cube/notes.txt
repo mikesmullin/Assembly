@@ -1,3 +1,5 @@
+http://docs.gl/gl4/glCreateShader
+
 ; GetSystemMetrics ; ie. screen dimensions
 
 ; glShadeModel

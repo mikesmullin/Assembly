@@ -13,6 +13,9 @@ import static com.sdd.asm.Macros.Size.*;
  * Responsible for all 3d graphics.
  *
  * see: https://www.khronos.org/registry/OpenGL/api/GLES2/gl2.h
+ * see: https://www.opengl.org/archives/resources/faq/technical/extensions.htm
+ * see: http://docs.gl/gl4/glCreateShader
+ * see: https://stackoverflow.com/a/6562159
  */
 public class Opengl32
 {
@@ -72,6 +75,19 @@ public class Opengl32
 		return new Proc(Macros::__ms_fastcall_64,
 			deref(label(Scope.GLOBAL, "glGetError", true)),
 			returnVal(DWORD, "GLenum errCode"));
+	}
+	
+	public static final int GL_VERSION = 0x1F02;
+	
+	public static Proc glGetString(
+		final Operand name
+	) {
+		return new Proc(
+			deref(label(Scope.GLOBAL, "glGetString", true)),
+			new ArrayList<SizedOp>(){{
+				add(width(QWORD, name.comment("GLenum name")));
+			}},
+			returnVal(QWORD, "GLubyte* WINAPI"));
 	}
 	
 	public enum GlShaderType
