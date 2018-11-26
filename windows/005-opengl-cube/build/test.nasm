@@ -27,19 +27,19 @@ extern PostQuitMessage
 section .data align=16
 FormatMessage__buffer: times 256 db 0
 GetLastError__errCode: dd 0
-FormatString: db "Macros:795: yes this is an error",10,0
 FormatMessage__length: dd 0
 printf__success: dd 0
-FormatString_1: db "Macros:799: you just saw an error",10,0
 ExitProcess__code: dd 0
 glGetError__code: dd 0
-FormatString_2: db "glError %1!.8llX!",10,10,0
-FormatString_3: db "Macros:852: Exiting as instructed",10,0
+FormatString: db "glError %1!.8llX!",10,10,0
+FormatString_1: db "graceful shutdown complete.",10,0
+FormatString_2: db "something awful happened",10,0
 WriteFile__bytesWritten: dd 0
 Console__stderr_nStdHandle: dd 0
 Console__stdout_nStdHandle: dd 0
 Generic__success: dq 0
 __message_trace: times 8 dq 0
+Generic__shutdown: dd 0
 Generic__uuid: db "07b62314-d4fc-4704-96e8-c31eb378d815",0
 CreateMutexA__handle: dq 0
 GetModuleHandleA__hModule: dq 0
@@ -114,10 +114,9 @@ GetProcAddress__wglGetProcAddress: db "wglGetProcAddress",0
 wglGetProcAddress: dq 0
 wglCreateContext__ctx: dq 0
 glString: dq 0
-FormatString_4: db "GL_VERSION: %1",10,10,0
+FormatString_3: db "GL_VERSION: %1",10,10,0
 F0_0: dq 0x0
 F1_0: dq 0x3f800000
-FormatString_5: db "Main:216: check messages",10,0
 
 ; struct
 IncomingMessage: ; instanceof tagMSG
@@ -130,24 +129,10 @@ IncomingMessage.pt.x: dd 0
 IncomingMessage.pt.y: dd 0
 IncomingMessage.lPrivate: dd 0
 
-FormatString_6: db "Main:230: I am probably forgetting to free some memory",10,0
-FormatString_7: db "Main:248: message received",10,0
-FormatString_8: db "Main:258: translate it",10,0
-FormatString_9: db "Main:260: dispatch it",10,0
-FormatString_10: db "Main:262: done dispatching it",10,0
-FormatString_11: db "Main:265: begin render",10,0
 WndProc__hWnd: dq 0
 WndProc__uMsg: dq 0
 WndProc__wParam: dq 0
 WndProc__lParam: dq 0
-FormatString_12: db "Main:286: WndProc called:",10,"  message: %2!.4llX!",10,10,0
-FormatString_13: db "Main:304: falling through",10,0
-FormatString_14: db "Main:307: WM_Default DefWindowProcA",10,0
-FormatString_15: db "Main:324: WM_Close pre - could prompt the user, but we don't care",10,0
-FormatString_16: db "Main:326: WM_Close post - it must be the error happens about here",10,0
-FormatString_17: db "Main:330: WM_Destroy pre",10,0
-FormatString_18: db "Main:332: WM_Destroy post",10,0
-FormatString_19: db "Main:336: WndProc return 0",10,0
 
 section .text align=16
 global main
@@ -425,7 +410,7 @@ call [glGetString]
     mov qword [rsp + 32], FormatMessage__buffer ; 5th LPSTR lpBuffer
     mov dword r9d, 0 ; 4th = NULL DWORD dwLanguageId
     mov dword r8d, 0 ; 3rd = NULL DWORD dwMessageId
-    mov dword edx, FormatString_4 ; 2nd LPCVOID lpSource
+    mov dword edx, FormatString_3 ; 2nd LPCVOID lpSource
     mov dword ecx, 0x2400 ; 1st = 9216 FORMAT_MESSAGE_ARGUMENT_ARRAY | FORMAT_MESSAGE_FROM_STRING DWORD dwFlags
 call FormatMessageA
     mov dword [FormatMessage__length], eax ; return DWORD TCHARs written
@@ -457,31 +442,6 @@ call [glClearColor]
     add rsp, 40 ; deallocate shadow space
 
 Loop:
-    ; MS __fastcall x64 ABI
-    sub rsp, 64 ; allocate shadow space
-    mov qword [rsp + 48], 0 ; 7th = NULL va_list *Arguments
-    mov qword [rsp + 40], 0x100 ; 6th = 256 DWORD nSize
-    mov qword [rsp + 32], FormatMessage__buffer ; 5th LPSTR lpBuffer
-    mov dword r9d, 0 ; 4th = NULL DWORD dwLanguageId
-    mov dword r8d, 0 ; 3rd = NULL DWORD dwMessageId
-    mov dword edx, FormatString_5 ; 2nd LPCVOID lpSource
-    mov dword ecx, 0x2400 ; 1st = 9216 FORMAT_MESSAGE_ARGUMENT_ARRAY | FORMAT_MESSAGE_FROM_STRING DWORD dwFlags
-call FormatMessageA
-    mov dword [FormatMessage__length], eax ; return DWORD TCHARs written
-    add rsp, 64 ; deallocate shadow space
-
-    ; MS __fastcall x64 ABI
-    sub rsp, 48 ; allocate shadow space
-    mov dword [rsp + 32], 0 ; 5th = NULL LPOVERLAPPED lpOverlapped
-    mov dword r9d, WriteFile__bytesWritten ; 4th LPDWORD lpNumberOfBytesWritten
-    mov dword r8d, [FormatMessage__length] ; 3rd DWORD nNumberOfBytesToWrite
-    mov dword edx, FormatMessage__buffer ; 2nd LPCVOID lpBuffer
-    mov dword ecx, [Console__stdout_nStdHandle] ; 1st HANDLE hFile
-call WriteFile
-    mov dword [printf__success], eax ; return BOOL
-    add rsp, 48 ; deallocate shadow space
-
-
     call GetLastError__prologue_reset
     ; MS __fastcall x64 ABI
     sub rsp, 48 ; allocate shadow space
@@ -501,86 +461,11 @@ cmp dword [Generic__success], 0
 je near ..@Render
 cmp dword [IncomingMessage.message], 0x12 ; = 18 WM_QUIT
 jne near ..@Loop__processMessage
-    ; MS __fastcall x64 ABI
-    sub rsp, 64 ; allocate shadow space
-    mov qword [rsp + 48], 0 ; 7th = NULL va_list *Arguments
-    mov qword [rsp + 40], 0x100 ; 6th = 256 DWORD nSize
-    mov qword [rsp + 32], FormatMessage__buffer ; 5th LPSTR lpBuffer
-    mov dword r9d, 0 ; 4th = NULL DWORD dwLanguageId
-    mov dword r8d, 0 ; 3rd = NULL DWORD dwMessageId
-    mov dword edx, FormatString_6 ; 2nd LPCVOID lpSource
-    mov dword ecx, 0x2400 ; 1st = 9216 FORMAT_MESSAGE_ARGUMENT_ARRAY | FORMAT_MESSAGE_FROM_STRING DWORD dwFlags
-call FormatMessageA
-    mov dword [FormatMessage__length], eax ; return DWORD TCHARs written
-    add rsp, 64 ; deallocate shadow space
-
-    ; MS __fastcall x64 ABI
-    sub rsp, 48 ; allocate shadow space
-    mov dword [rsp + 32], 0 ; 5th = NULL LPOVERLAPPED lpOverlapped
-    mov dword r9d, WriteFile__bytesWritten ; 4th LPDWORD lpNumberOfBytesWritten
-    mov dword r8d, [FormatMessage__length] ; 3rd DWORD nNumberOfBytesToWrite
-    mov dword edx, FormatMessage__buffer ; 2nd LPCVOID lpBuffer
-    mov dword ecx, [Console__stdout_nStdHandle] ; 1st HANDLE hFile
-call WriteFile
-    mov dword [printf__success], eax ; return BOOL
-    add rsp, 48 ; deallocate shadow space
-
-
 mov dword [ExitProcess__code], 0
 call Exit
 
 
 ..@Loop__processMessage:
-    ; MS __fastcall x64 ABI
-    sub rsp, 64 ; allocate shadow space
-    mov qword [rsp + 48], 0 ; 7th = NULL va_list *Arguments
-    mov qword [rsp + 40], 0x100 ; 6th = 256 DWORD nSize
-    mov qword [rsp + 32], FormatMessage__buffer ; 5th LPSTR lpBuffer
-    mov dword r9d, 0 ; 4th = NULL DWORD dwLanguageId
-    mov dword r8d, 0 ; 3rd = NULL DWORD dwMessageId
-    mov dword edx, FormatString_7 ; 2nd LPCVOID lpSource
-    mov dword ecx, 0x2400 ; 1st = 9216 FORMAT_MESSAGE_ARGUMENT_ARRAY | FORMAT_MESSAGE_FROM_STRING DWORD dwFlags
-call FormatMessageA
-    mov dword [FormatMessage__length], eax ; return DWORD TCHARs written
-    add rsp, 64 ; deallocate shadow space
-
-    ; MS __fastcall x64 ABI
-    sub rsp, 48 ; allocate shadow space
-    mov dword [rsp + 32], 0 ; 5th = NULL LPOVERLAPPED lpOverlapped
-    mov dword r9d, WriteFile__bytesWritten ; 4th LPDWORD lpNumberOfBytesWritten
-    mov dword r8d, [FormatMessage__length] ; 3rd DWORD nNumberOfBytesToWrite
-    mov dword edx, FormatMessage__buffer ; 2nd LPCVOID lpBuffer
-    mov dword ecx, [Console__stdout_nStdHandle] ; 1st HANDLE hFile
-call WriteFile
-    mov dword [printf__success], eax ; return BOOL
-    add rsp, 48 ; deallocate shadow space
-
-
-    ; MS __fastcall x64 ABI
-    sub rsp, 64 ; allocate shadow space
-    mov qword [rsp + 48], 0 ; 7th = NULL va_list *Arguments
-    mov qword [rsp + 40], 0x100 ; 6th = 256 DWORD nSize
-    mov qword [rsp + 32], FormatMessage__buffer ; 5th LPSTR lpBuffer
-    mov dword r9d, 0 ; 4th = NULL DWORD dwLanguageId
-    mov dword r8d, 0 ; 3rd = NULL DWORD dwMessageId
-    mov dword edx, FormatString_8 ; 2nd LPCVOID lpSource
-    mov dword ecx, 0x2400 ; 1st = 9216 FORMAT_MESSAGE_ARGUMENT_ARRAY | FORMAT_MESSAGE_FROM_STRING DWORD dwFlags
-call FormatMessageA
-    mov dword [FormatMessage__length], eax ; return DWORD TCHARs written
-    add rsp, 64 ; deallocate shadow space
-
-    ; MS __fastcall x64 ABI
-    sub rsp, 48 ; allocate shadow space
-    mov dword [rsp + 32], 0 ; 5th = NULL LPOVERLAPPED lpOverlapped
-    mov dword r9d, WriteFile__bytesWritten ; 4th LPDWORD lpNumberOfBytesWritten
-    mov dword r8d, [FormatMessage__length] ; 3rd DWORD nNumberOfBytesToWrite
-    mov dword edx, FormatMessage__buffer ; 2nd LPCVOID lpBuffer
-    mov dword ecx, [Console__stdout_nStdHandle] ; 1st HANDLE hFile
-call WriteFile
-    mov dword [printf__success], eax ; return BOOL
-    add rsp, 48 ; deallocate shadow space
-
-
     call GetLastError__prologue_reset
     ; MS __fastcall x64 ABI
     sub rsp, 40 ; allocate shadow space
@@ -589,31 +474,6 @@ call TranslateMessage
     add rsp, 40 ; deallocate shadow space
 
     call GetLastError__epilogue_check
-
-    ; MS __fastcall x64 ABI
-    sub rsp, 64 ; allocate shadow space
-    mov qword [rsp + 48], 0 ; 7th = NULL va_list *Arguments
-    mov qword [rsp + 40], 0x100 ; 6th = 256 DWORD nSize
-    mov qword [rsp + 32], FormatMessage__buffer ; 5th LPSTR lpBuffer
-    mov dword r9d, 0 ; 4th = NULL DWORD dwLanguageId
-    mov dword r8d, 0 ; 3rd = NULL DWORD dwMessageId
-    mov dword edx, FormatString_9 ; 2nd LPCVOID lpSource
-    mov dword ecx, 0x2400 ; 1st = 9216 FORMAT_MESSAGE_ARGUMENT_ARRAY | FORMAT_MESSAGE_FROM_STRING DWORD dwFlags
-call FormatMessageA
-    mov dword [FormatMessage__length], eax ; return DWORD TCHARs written
-    add rsp, 64 ; deallocate shadow space
-
-    ; MS __fastcall x64 ABI
-    sub rsp, 48 ; allocate shadow space
-    mov dword [rsp + 32], 0 ; 5th = NULL LPOVERLAPPED lpOverlapped
-    mov dword r9d, WriteFile__bytesWritten ; 4th LPDWORD lpNumberOfBytesWritten
-    mov dword r8d, [FormatMessage__length] ; 3rd DWORD nNumberOfBytesToWrite
-    mov dword edx, FormatMessage__buffer ; 2nd LPCVOID lpBuffer
-    mov dword ecx, [Console__stdout_nStdHandle] ; 1st HANDLE hFile
-call WriteFile
-    mov dword [printf__success], eax ; return BOOL
-    add rsp, 48 ; deallocate shadow space
-
 
     call GetLastError__prologue_reset
     ; MS __fastcall x64 ABI
@@ -624,57 +484,9 @@ call DispatchMessageA
 
     call GetLastError__epilogue_check
 
-    ; MS __fastcall x64 ABI
-    sub rsp, 64 ; allocate shadow space
-    mov qword [rsp + 48], 0 ; 7th = NULL va_list *Arguments
-    mov qword [rsp + 40], 0x100 ; 6th = 256 DWORD nSize
-    mov qword [rsp + 32], FormatMessage__buffer ; 5th LPSTR lpBuffer
-    mov dword r9d, 0 ; 4th = NULL DWORD dwLanguageId
-    mov dword r8d, 0 ; 3rd = NULL DWORD dwMessageId
-    mov dword edx, FormatString_10 ; 2nd LPCVOID lpSource
-    mov dword ecx, 0x2400 ; 1st = 9216 FORMAT_MESSAGE_ARGUMENT_ARRAY | FORMAT_MESSAGE_FROM_STRING DWORD dwFlags
-call FormatMessageA
-    mov dword [FormatMessage__length], eax ; return DWORD TCHARs written
-    add rsp, 64 ; deallocate shadow space
-
-    ; MS __fastcall x64 ABI
-    sub rsp, 48 ; allocate shadow space
-    mov dword [rsp + 32], 0 ; 5th = NULL LPOVERLAPPED lpOverlapped
-    mov dword r9d, WriteFile__bytesWritten ; 4th LPDWORD lpNumberOfBytesWritten
-    mov dword r8d, [FormatMessage__length] ; 3rd DWORD nNumberOfBytesToWrite
-    mov dword edx, FormatMessage__buffer ; 2nd LPCVOID lpBuffer
-    mov dword ecx, [Console__stdout_nStdHandle] ; 1st HANDLE hFile
-call WriteFile
-    mov dword [printf__success], eax ; return BOOL
-    add rsp, 48 ; deallocate shadow space
-
-
 ..@Render:
-    ; MS __fastcall x64 ABI
-    sub rsp, 64 ; allocate shadow space
-    mov qword [rsp + 48], 0 ; 7th = NULL va_list *Arguments
-    mov qword [rsp + 40], 0x100 ; 6th = 256 DWORD nSize
-    mov qword [rsp + 32], FormatMessage__buffer ; 5th LPSTR lpBuffer
-    mov dword r9d, 0 ; 4th = NULL DWORD dwLanguageId
-    mov dword r8d, 0 ; 3rd = NULL DWORD dwMessageId
-    mov dword edx, FormatString_11 ; 2nd LPCVOID lpSource
-    mov dword ecx, 0x2400 ; 1st = 9216 FORMAT_MESSAGE_ARGUMENT_ARRAY | FORMAT_MESSAGE_FROM_STRING DWORD dwFlags
-call FormatMessageA
-    mov dword [FormatMessage__length], eax ; return DWORD TCHARs written
-    add rsp, 64 ; deallocate shadow space
-
-    ; MS __fastcall x64 ABI
-    sub rsp, 48 ; allocate shadow space
-    mov dword [rsp + 32], 0 ; 5th = NULL LPOVERLAPPED lpOverlapped
-    mov dword r9d, WriteFile__bytesWritten ; 4th LPDWORD lpNumberOfBytesWritten
-    mov dword r8d, [FormatMessage__length] ; 3rd DWORD nNumberOfBytesToWrite
-    mov dword edx, FormatMessage__buffer ; 2nd LPCVOID lpBuffer
-    mov dword ecx, [Console__stdout_nStdHandle] ; 1st HANDLE hFile
-call WriteFile
-    mov dword [printf__success], eax ; return BOOL
-    add rsp, 48 ; deallocate shadow space
-
-
+cmp dword [Generic__shutdown], 1 ; = TRUE
+je near Loop
     ; MS __fastcall x64 ABI
     sub rsp, 40 ; allocate shadow space
     mov dword ecx, 0x4000 ; 1st = 16384 GLbitfield mask
@@ -698,34 +510,6 @@ mov qword [WndProc__hWnd], rcx
 mov qword [WndProc__uMsg], rdx
 mov qword [WndProc__wParam], r8
 mov qword [WndProc__lParam], r9
-mov dword eax, [WndProc__uMsg]
-mov dword [__message_trace + 8], eax
-    ; MS __fastcall x64 ABI
-    sub rsp, 64 ; allocate shadow space
-    mov qword [rsp + 48], __message_trace ; 7th va_list *Arguments
-    mov qword [rsp + 40], 0x100 ; 6th = 256 DWORD nSize
-    mov qword [rsp + 32], FormatMessage__buffer ; 5th LPSTR lpBuffer
-    mov dword r9d, 0 ; 4th = NULL DWORD dwLanguageId
-    mov dword r8d, 0 ; 3rd = NULL DWORD dwMessageId
-    mov dword edx, FormatString_12 ; 2nd LPCVOID lpSource
-    mov dword ecx, 0x2400 ; 1st = 9216 FORMAT_MESSAGE_ARGUMENT_ARRAY | FORMAT_MESSAGE_FROM_STRING DWORD dwFlags
-call FormatMessageA
-    mov dword [FormatMessage__length], eax ; return DWORD TCHARs written
-    add rsp, 64 ; deallocate shadow space
-
-    ; MS __fastcall x64 ABI
-    sub rsp, 48 ; allocate shadow space
-    mov dword [rsp + 32], 0 ; 5th = NULL LPOVERLAPPED lpOverlapped
-    mov dword r9d, WriteFile__bytesWritten ; 4th LPDWORD lpNumberOfBytesWritten
-    mov dword r8d, [FormatMessage__length] ; 3rd DWORD nNumberOfBytesToWrite
-    mov dword edx, FormatMessage__buffer ; 2nd LPCVOID lpBuffer
-    mov dword ecx, [Console__stdout_nStdHandle] ; 1st HANDLE hFile
-call WriteFile
-    mov dword [printf__success], eax ; return BOOL
-    add rsp, 48 ; deallocate shadow space
-
-
-mov qword rdx, [WndProc__uMsg]
 ; switch(uMsg) {
 cmp qword rdx, 0x6 ; = 6 WM_ACTIVATE
 je near WndProc__return
@@ -743,59 +527,8 @@ cmp qword rdx, 0x101 ; = 257 WM_KEYUP
 je near WndProc__return
 cmp qword rdx, 0x5 ; = 5 WM_SIZE
 je near WndProc__return
-    ; MS __fastcall x64 ABI
-    sub rsp, 64 ; allocate shadow space
-    mov qword [rsp + 48], 0 ; 7th = NULL va_list *Arguments
-    mov qword [rsp + 40], 0x100 ; 6th = 256 DWORD nSize
-    mov qword [rsp + 32], FormatMessage__buffer ; 5th LPSTR lpBuffer
-    mov dword r9d, 0 ; 4th = NULL DWORD dwLanguageId
-    mov dword r8d, 0 ; 3rd = NULL DWORD dwMessageId
-    mov dword edx, FormatString_13 ; 2nd LPCVOID lpSource
-    mov dword ecx, 0x2400 ; 1st = 9216 FORMAT_MESSAGE_ARGUMENT_ARRAY | FORMAT_MESSAGE_FROM_STRING DWORD dwFlags
-call FormatMessageA
-    mov dword [FormatMessage__length], eax ; return DWORD TCHARs written
-    add rsp, 64 ; deallocate shadow space
-
-    ; MS __fastcall x64 ABI
-    sub rsp, 48 ; allocate shadow space
-    mov dword [rsp + 32], 0 ; 5th = NULL LPOVERLAPPED lpOverlapped
-    mov dword r9d, WriteFile__bytesWritten ; 4th LPDWORD lpNumberOfBytesWritten
-    mov dword r8d, [FormatMessage__length] ; 3rd DWORD nNumberOfBytesToWrite
-    mov dword edx, FormatMessage__buffer ; 2nd LPCVOID lpBuffer
-    mov dword ecx, [Console__stdout_nStdHandle] ; 1st HANDLE hFile
-call WriteFile
-    mov dword [printf__success], eax ; return BOOL
-    add rsp, 48 ; deallocate shadow space
-
-
 ..@default:
 ; default window procedure handles messages for us
-    ; MS __fastcall x64 ABI
-    sub rsp, 64 ; allocate shadow space
-    mov qword [rsp + 48], 0 ; 7th = NULL va_list *Arguments
-    mov qword [rsp + 40], 0x100 ; 6th = 256 DWORD nSize
-    mov qword [rsp + 32], FormatMessage__buffer ; 5th LPSTR lpBuffer
-    mov dword r9d, 0 ; 4th = NULL DWORD dwLanguageId
-    mov dword r8d, 0 ; 3rd = NULL DWORD dwMessageId
-    mov dword edx, FormatString_14 ; 2nd LPCVOID lpSource
-    mov dword ecx, 0x2400 ; 1st = 9216 FORMAT_MESSAGE_ARGUMENT_ARRAY | FORMAT_MESSAGE_FROM_STRING DWORD dwFlags
-call FormatMessageA
-    mov dword [FormatMessage__length], eax ; return DWORD TCHARs written
-    add rsp, 64 ; deallocate shadow space
-
-    ; MS __fastcall x64 ABI
-    sub rsp, 48 ; allocate shadow space
-    mov dword [rsp + 32], 0 ; 5th = NULL LPOVERLAPPED lpOverlapped
-    mov dword r9d, WriteFile__bytesWritten ; 4th LPDWORD lpNumberOfBytesWritten
-    mov dword r8d, [FormatMessage__length] ; 3rd DWORD nNumberOfBytesToWrite
-    mov dword edx, FormatMessage__buffer ; 2nd LPCVOID lpBuffer
-    mov dword ecx, [Console__stdout_nStdHandle] ; 1st HANDLE hFile
-call WriteFile
-    mov dword [printf__success], eax ; return BOOL
-    add rsp, 48 ; deallocate shadow space
-
-
-    call GetLastError__prologue_reset
     ; MS __fastcall x64 ABI
     sub rsp, 40 ; allocate shadow space
     mov qword r9, [WndProc__lParam] ; 4th LPARAM lParam
@@ -806,14 +539,15 @@ call DefWindowProcA
     mov qword [Generic__success], rax ; return LRESULT
     add rsp, 40 ; deallocate shadow space
 
-    call GetLastError__epilogue_check
-
+cmp dword [Generic__shutdown], 1 ; = TRUE
+jne near ..@dont_clear
     ; MS __fastcall x64 ABI
     sub rsp, 40 ; allocate shadow space
     mov dword ecx, 0 ; 1st DWORD dwErrCode
 call SetLastError
     add rsp, 40 ; deallocate shadow space
 
+..@dont_clear:
 mov qword rax, [Generic__success] ; return 
 ret
 ..@WM_SysCommand:
@@ -824,31 +558,7 @@ cmp dword ebx, 0xf170 ; = 61808
 je near WndProc__return
 jmp near ..@default
 ..@WM_Close:
-    ; MS __fastcall x64 ABI
-    sub rsp, 64 ; allocate shadow space
-    mov qword [rsp + 48], 0 ; 7th = NULL va_list *Arguments
-    mov qword [rsp + 40], 0x100 ; 6th = 256 DWORD nSize
-    mov qword [rsp + 32], FormatMessage__buffer ; 5th LPSTR lpBuffer
-    mov dword r9d, 0 ; 4th = NULL DWORD dwLanguageId
-    mov dword r8d, 0 ; 3rd = NULL DWORD dwMessageId
-    mov dword edx, FormatString_15 ; 2nd LPCVOID lpSource
-    mov dword ecx, 0x2400 ; 1st = 9216 FORMAT_MESSAGE_ARGUMENT_ARRAY | FORMAT_MESSAGE_FROM_STRING DWORD dwFlags
-call FormatMessageA
-    mov dword [FormatMessage__length], eax ; return DWORD TCHARs written
-    add rsp, 64 ; deallocate shadow space
-
-    ; MS __fastcall x64 ABI
-    sub rsp, 48 ; allocate shadow space
-    mov dword [rsp + 32], 0 ; 5th = NULL LPOVERLAPPED lpOverlapped
-    mov dword r9d, WriteFile__bytesWritten ; 4th LPDWORD lpNumberOfBytesWritten
-    mov dword r8d, [FormatMessage__length] ; 3rd DWORD nNumberOfBytesToWrite
-    mov dword edx, FormatMessage__buffer ; 2nd LPCVOID lpBuffer
-    mov dword ecx, [Console__stdout_nStdHandle] ; 1st HANDLE hFile
-call WriteFile
-    mov dword [printf__success], eax ; return BOOL
-    add rsp, 48 ; deallocate shadow space
-
-
+mov dword [Generic__shutdown], 1 ; = TRUE
     call GetLastError__prologue_reset
     ; MS __fastcall x64 ABI
     sub rsp, 40 ; allocate shadow space
@@ -858,58 +568,8 @@ call DestroyWindow
 
     call GetLastError__epilogue_check
 
-    ; MS __fastcall x64 ABI
-    sub rsp, 64 ; allocate shadow space
-    mov qword [rsp + 48], 0 ; 7th = NULL va_list *Arguments
-    mov qword [rsp + 40], 0x100 ; 6th = 256 DWORD nSize
-    mov qword [rsp + 32], FormatMessage__buffer ; 5th LPSTR lpBuffer
-    mov dword r9d, 0 ; 4th = NULL DWORD dwLanguageId
-    mov dword r8d, 0 ; 3rd = NULL DWORD dwMessageId
-    mov dword edx, FormatString_16 ; 2nd LPCVOID lpSource
-    mov dword ecx, 0x2400 ; 1st = 9216 FORMAT_MESSAGE_ARGUMENT_ARRAY | FORMAT_MESSAGE_FROM_STRING DWORD dwFlags
-call FormatMessageA
-    mov dword [FormatMessage__length], eax ; return DWORD TCHARs written
-    add rsp, 64 ; deallocate shadow space
-
-    ; MS __fastcall x64 ABI
-    sub rsp, 48 ; allocate shadow space
-    mov dword [rsp + 32], 0 ; 5th = NULL LPOVERLAPPED lpOverlapped
-    mov dword r9d, WriteFile__bytesWritten ; 4th LPDWORD lpNumberOfBytesWritten
-    mov dword r8d, [FormatMessage__length] ; 3rd DWORD nNumberOfBytesToWrite
-    mov dword edx, FormatMessage__buffer ; 2nd LPCVOID lpBuffer
-    mov dword ecx, [Console__stdout_nStdHandle] ; 1st HANDLE hFile
-call WriteFile
-    mov dword [printf__success], eax ; return BOOL
-    add rsp, 48 ; deallocate shadow space
-
-
 jmp near WndProc__return
 ..@WM_Destroy:
-    ; MS __fastcall x64 ABI
-    sub rsp, 64 ; allocate shadow space
-    mov qword [rsp + 48], 0 ; 7th = NULL va_list *Arguments
-    mov qword [rsp + 40], 0x100 ; 6th = 256 DWORD nSize
-    mov qword [rsp + 32], FormatMessage__buffer ; 5th LPSTR lpBuffer
-    mov dword r9d, 0 ; 4th = NULL DWORD dwLanguageId
-    mov dword r8d, 0 ; 3rd = NULL DWORD dwMessageId
-    mov dword edx, FormatString_17 ; 2nd LPCVOID lpSource
-    mov dword ecx, 0x2400 ; 1st = 9216 FORMAT_MESSAGE_ARGUMENT_ARRAY | FORMAT_MESSAGE_FROM_STRING DWORD dwFlags
-call FormatMessageA
-    mov dword [FormatMessage__length], eax ; return DWORD TCHARs written
-    add rsp, 64 ; deallocate shadow space
-
-    ; MS __fastcall x64 ABI
-    sub rsp, 48 ; allocate shadow space
-    mov dword [rsp + 32], 0 ; 5th = NULL LPOVERLAPPED lpOverlapped
-    mov dword r9d, WriteFile__bytesWritten ; 4th LPDWORD lpNumberOfBytesWritten
-    mov dword r8d, [FormatMessage__length] ; 3rd DWORD nNumberOfBytesToWrite
-    mov dword edx, FormatMessage__buffer ; 2nd LPCVOID lpBuffer
-    mov dword ecx, [Console__stdout_nStdHandle] ; 1st HANDLE hFile
-call WriteFile
-    mov dword [printf__success], eax ; return BOOL
-    add rsp, 48 ; deallocate shadow space
-
-
     call GetLastError__prologue_reset
     ; MS __fastcall x64 ABI
     sub rsp, 40 ; allocate shadow space
@@ -919,58 +579,8 @@ call PostQuitMessage
 
     call GetLastError__epilogue_check
 
-    ; MS __fastcall x64 ABI
-    sub rsp, 64 ; allocate shadow space
-    mov qword [rsp + 48], 0 ; 7th = NULL va_list *Arguments
-    mov qword [rsp + 40], 0x100 ; 6th = 256 DWORD nSize
-    mov qword [rsp + 32], FormatMessage__buffer ; 5th LPSTR lpBuffer
-    mov dword r9d, 0 ; 4th = NULL DWORD dwLanguageId
-    mov dword r8d, 0 ; 3rd = NULL DWORD dwMessageId
-    mov dword edx, FormatString_18 ; 2nd LPCVOID lpSource
-    mov dword ecx, 0x2400 ; 1st = 9216 FORMAT_MESSAGE_ARGUMENT_ARRAY | FORMAT_MESSAGE_FROM_STRING DWORD dwFlags
-call FormatMessageA
-    mov dword [FormatMessage__length], eax ; return DWORD TCHARs written
-    add rsp, 64 ; deallocate shadow space
-
-    ; MS __fastcall x64 ABI
-    sub rsp, 48 ; allocate shadow space
-    mov dword [rsp + 32], 0 ; 5th = NULL LPOVERLAPPED lpOverlapped
-    mov dword r9d, WriteFile__bytesWritten ; 4th LPDWORD lpNumberOfBytesWritten
-    mov dword r8d, [FormatMessage__length] ; 3rd DWORD nNumberOfBytesToWrite
-    mov dword edx, FormatMessage__buffer ; 2nd LPCVOID lpBuffer
-    mov dword ecx, [Console__stdout_nStdHandle] ; 1st HANDLE hFile
-call WriteFile
-    mov dword [printf__success], eax ; return BOOL
-    add rsp, 48 ; deallocate shadow space
-
-
 jmp near WndProc__return
 WndProc__return:
-    ; MS __fastcall x64 ABI
-    sub rsp, 64 ; allocate shadow space
-    mov qword [rsp + 48], 0 ; 7th = NULL va_list *Arguments
-    mov qword [rsp + 40], 0x100 ; 6th = 256 DWORD nSize
-    mov qword [rsp + 32], FormatMessage__buffer ; 5th LPSTR lpBuffer
-    mov dword r9d, 0 ; 4th = NULL DWORD dwLanguageId
-    mov dword r8d, 0 ; 3rd = NULL DWORD dwMessageId
-    mov dword edx, FormatString_19 ; 2nd LPCVOID lpSource
-    mov dword ecx, 0x2400 ; 1st = 9216 FORMAT_MESSAGE_ARGUMENT_ARRAY | FORMAT_MESSAGE_FROM_STRING DWORD dwFlags
-call FormatMessageA
-    mov dword [FormatMessage__length], eax ; return DWORD TCHARs written
-    add rsp, 64 ; deallocate shadow space
-
-    ; MS __fastcall x64 ABI
-    sub rsp, 48 ; allocate shadow space
-    mov dword [rsp + 32], 0 ; 5th = NULL LPOVERLAPPED lpOverlapped
-    mov dword r9d, WriteFile__bytesWritten ; 4th LPDWORD lpNumberOfBytesWritten
-    mov dword r8d, [FormatMessage__length] ; 3rd DWORD nNumberOfBytesToWrite
-    mov dword edx, FormatMessage__buffer ; 2nd LPCVOID lpBuffer
-    mov dword ecx, [Console__stdout_nStdHandle] ; 1st HANDLE hFile
-call WriteFile
-    mov dword [printf__success], eax ; return BOOL
-    add rsp, 48 ; deallocate shadow space
-
-
 xor rax, rax ; return NULL
 ret
 GetLastError__prologue_reset:
@@ -1004,60 +614,10 @@ ret
     mov qword [rsp + 48], 0 ; 7th = NULL va_list *Arguments
     mov qword [rsp + 40], 0x100 ; 6th = 256 DWORD nSize
     mov qword [rsp + 32], FormatMessage__buffer ; 5th LPSTR lpBuffer
-    mov dword r9d, 0 ; 4th = NULL DWORD dwLanguageId
-    mov dword r8d, 0 ; 3rd = NULL DWORD dwMessageId
-    mov dword edx, FormatString ; 2nd LPCVOID lpSource
-    mov dword ecx, 0x2400 ; 1st = 9216 FORMAT_MESSAGE_ARGUMENT_ARRAY | FORMAT_MESSAGE_FROM_STRING DWORD dwFlags
-call FormatMessageA
-    mov dword [FormatMessage__length], eax ; return DWORD TCHARs written
-    add rsp, 64 ; deallocate shadow space
-
-    ; MS __fastcall x64 ABI
-    sub rsp, 48 ; allocate shadow space
-    mov dword [rsp + 32], 0 ; 5th = NULL LPOVERLAPPED lpOverlapped
-    mov dword r9d, WriteFile__bytesWritten ; 4th LPDWORD lpNumberOfBytesWritten
-    mov dword r8d, [FormatMessage__length] ; 3rd DWORD nNumberOfBytesToWrite
-    mov dword edx, FormatMessage__buffer ; 2nd LPCVOID lpBuffer
-    mov dword ecx, [Console__stdout_nStdHandle] ; 1st HANDLE hFile
-call WriteFile
-    mov dword [printf__success], eax ; return BOOL
-    add rsp, 48 ; deallocate shadow space
-
-
-    ; MS __fastcall x64 ABI
-    sub rsp, 64 ; allocate shadow space
-    mov qword [rsp + 48], 0 ; 7th = NULL va_list *Arguments
-    mov qword [rsp + 40], 0x100 ; 6th = 256 DWORD nSize
-    mov qword [rsp + 32], FormatMessage__buffer ; 5th LPSTR lpBuffer
     mov dword r9d, 0x400 ; 4th = 1024 LANG_USER_DEFAULT__SUBLANG_DEFAULT DWORD dwLanguageId
     mov dword r8d, [GetLastError__errCode] ; 3rd DWORD dwMessageId
     mov dword edx, 0 ; 2nd = NULL LPCVOID lpSource
     mov dword ecx, 0x1200 ; 1st = 4608 FORMAT_MESSAGE_FROM_SYSTEM | FORMAT_MESSAGE_IGNORE_INSERTS DWORD dwFlags
-call FormatMessageA
-    mov dword [FormatMessage__length], eax ; return DWORD TCHARs written
-    add rsp, 64 ; deallocate shadow space
-
-    ; MS __fastcall x64 ABI
-    sub rsp, 48 ; allocate shadow space
-    mov dword [rsp + 32], 0 ; 5th = NULL LPOVERLAPPED lpOverlapped
-    mov dword r9d, WriteFile__bytesWritten ; 4th LPDWORD lpNumberOfBytesWritten
-    mov dword r8d, [FormatMessage__length] ; 3rd DWORD nNumberOfBytesToWrite
-    mov dword edx, FormatMessage__buffer ; 2nd LPCVOID lpBuffer
-    mov dword ecx, [Console__stdout_nStdHandle] ; 1st HANDLE hFile
-call WriteFile
-    mov dword [printf__success], eax ; return BOOL
-    add rsp, 48 ; deallocate shadow space
-
-
-    ; MS __fastcall x64 ABI
-    sub rsp, 64 ; allocate shadow space
-    mov qword [rsp + 48], 0 ; 7th = NULL va_list *Arguments
-    mov qword [rsp + 40], 0x100 ; 6th = 256 DWORD nSize
-    mov qword [rsp + 32], FormatMessage__buffer ; 5th LPSTR lpBuffer
-    mov dword r9d, 0 ; 4th = NULL DWORD dwLanguageId
-    mov dword r8d, 0 ; 3rd = NULL DWORD dwMessageId
-    mov dword edx, FormatString_1 ; 2nd LPCVOID lpSource
-    mov dword ecx, 0x2400 ; 1st = 9216 FORMAT_MESSAGE_ARGUMENT_ARRAY | FORMAT_MESSAGE_FROM_STRING DWORD dwFlags
 call FormatMessageA
     mov dword [FormatMessage__length], eax ; return DWORD TCHARs written
     add rsp, 64 ; deallocate shadow space
@@ -1098,7 +658,7 @@ ret
     mov qword [rsp + 32], FormatMessage__buffer ; 5th LPSTR lpBuffer
     mov dword r9d, 0 ; 4th = NULL DWORD dwLanguageId
     mov dword r8d, 0 ; 3rd = NULL DWORD dwMessageId
-    mov dword edx, FormatString_2 ; 2nd LPCVOID lpSource
+    mov dword edx, FormatString ; 2nd LPCVOID lpSource
     mov dword ecx, 0x2400 ; 1st = 9216 FORMAT_MESSAGE_ARGUMENT_ARRAY | FORMAT_MESSAGE_FROM_STRING DWORD dwFlags
 call FormatMessageA
     mov dword [FormatMessage__length], eax ; return DWORD TCHARs written
@@ -1129,7 +689,7 @@ Exit:
     mov qword [rsp + 32], FormatMessage__buffer ; 5th LPSTR lpBuffer
     mov dword r9d, 0 ; 4th = NULL DWORD dwLanguageId
     mov dword r8d, 0 ; 3rd = NULL DWORD dwMessageId
-    mov dword edx, FormatString_3 ; 2nd LPCVOID lpSource
+    mov dword edx, FormatString_1 ; 2nd LPCVOID lpSource
     mov dword ecx, 0x2400 ; 1st = 9216 FORMAT_MESSAGE_ARGUMENT_ARRAY | FORMAT_MESSAGE_FROM_STRING DWORD dwFlags
 call FormatMessageA
     mov dword [FormatMessage__length], eax ; return DWORD TCHARs written
@@ -1152,6 +712,31 @@ call WriteFile
     mov qword rcx, [ExitProcess__code] ; 1st UINT uExitCode
 call ExitProcess
     add rsp, 40 ; deallocate shadow space
+
+    ; MS __fastcall x64 ABI
+    sub rsp, 64 ; allocate shadow space
+    mov qword [rsp + 48], 0 ; 7th = NULL va_list *Arguments
+    mov qword [rsp + 40], 0x100 ; 6th = 256 DWORD nSize
+    mov qword [rsp + 32], FormatMessage__buffer ; 5th LPSTR lpBuffer
+    mov dword r9d, 0 ; 4th = NULL DWORD dwLanguageId
+    mov dword r8d, 0 ; 3rd = NULL DWORD dwMessageId
+    mov dword edx, FormatString_2 ; 2nd LPCVOID lpSource
+    mov dword ecx, 0x2400 ; 1st = 9216 FORMAT_MESSAGE_ARGUMENT_ARRAY | FORMAT_MESSAGE_FROM_STRING DWORD dwFlags
+call FormatMessageA
+    mov dword [FormatMessage__length], eax ; return DWORD TCHARs written
+    add rsp, 64 ; deallocate shadow space
+
+    ; MS __fastcall x64 ABI
+    sub rsp, 48 ; allocate shadow space
+    mov dword [rsp + 32], 0 ; 5th = NULL LPOVERLAPPED lpOverlapped
+    mov dword r9d, WriteFile__bytesWritten ; 4th LPDWORD lpNumberOfBytesWritten
+    mov dword r8d, [FormatMessage__length] ; 3rd DWORD nNumberOfBytesToWrite
+    mov dword edx, FormatMessage__buffer ; 2nd LPCVOID lpBuffer
+    mov dword ecx, [Console__stdout_nStdHandle] ; 1st HANDLE hFile
+call WriteFile
+    mov dword [printf__success], eax ; return BOOL
+    add rsp, 48 ; deallocate shadow space
+
 
 ret
 jmp near Exit

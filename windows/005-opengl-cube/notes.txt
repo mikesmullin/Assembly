@@ -1,8 +1,6 @@
 http://docs.gl/gl4/glCreateShader
 https://stackoverflow.com/a/6562159
 
-TODO: try solving that annoying "Invalid window handle." error when loop is properly constructed
-
 ; GetSystemMetrics ; ie. screen dimensions
 
 ; glShadeModel

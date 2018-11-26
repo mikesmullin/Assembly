@@ -104,7 +104,11 @@ public class Main
 		final Label glString = label(GLOBAL, "glString");
 		final Label msgTrace = label(GLOBAL, "__message_trace");
 		final Label dbgLastError = label(GLOBAL, "__debug_last_error");
+		final Label shutdown = label(GLOBAL, "Generic__shutdown");
+		final Label label_dont_clear = label(LOCAL, "dont_clear");
+		
 		data(msgTrace, 8, QWORD);
+		data(shutdown, DWORD);
 		asm(
 		def_label(main),
 			block("INIT"),
@@ -212,8 +216,6 @@ public class Main
 			call(glClearColor(0, 0, 1, 1)),
 	
 		def_label(Loop),
-	
-			trace("check messages"),
 			assign_call(success, PeekMessageA(
 				addrOf(IncomingMessage = istruct("IncomingMessage", tagMSG)),
 				Null(), // process messages for all windows of this thread, we will only have one anyway
@@ -227,7 +229,6 @@ public class Main
 	
 			jmp_if(DWORD, oper(deref(IncomingMessage.get("message"))), NOT_EQUAL, bitField(WM_QUIT), ProcessMessage),
 	
-			trace("I am probably forgetting to free some memory"),
 			exit(oper(0)),
 	
 		def_label(ProcessMessage),
@@ -245,7 +246,6 @@ public class Main
 //			mov(DWORD, oper(deref(msgTrace).offset(8*5)), oper(DWORD, A)),
 //			mov(DWORD, oper(DWORD, A), oper(deref(IncomingMessage.get("lPrivate")))),
 //			mov(DWORD, oper(deref(msgTrace).offset(8*6)), oper(DWORD, A)),
-			trace("message received"),
 //			trace("Message received:\n"+
 //				"  hwnd: %1!.16llX!\n"+
 //				"  message: %2!.4llX!\n"+
@@ -255,16 +255,14 @@ public class Main
 //				"  pt.x: %6!lu!\n"+
 //				"  pt.y: %7!lu!\n"+
 //				"  lPrivate: %8!.8llX!\n", msgTrace),
-			trace("translate it"),
 			call(TranslateMessage(addrOf(IncomingMessage))),
-			trace("dispatch it"),
 			call(DispatchMessageA(addrOf(IncomingMessage))),
-			trace("done dispatching it"),
+
+			def_label(Render),
+			// TODO: if the app is shutting down, abort this loop here
+			jmp_if(DWORD, oper(deref(shutdown)), EQUAL, oper(true), Loop),
 			
-		def_label(Render),
-			trace("begin render"),
 			call(glClear(GL_COLOR_BUFFER_BIT)),
-	
 			assign_call(success, SwapBuffers(deref(ctx2d))),
 	
 			jmp(Loop),
@@ -277,20 +275,20 @@ public class Main
 			assign_mov(QWORD, lParam, oper(QWORD, R9)),
 //			mov(QWORD, oper(QWORD, A), oper(deref(hWnd))),
 //			mov(QWORD, oper(deref(msgTrace).offset(8*0)), oper(QWORD, A)),
-			mov(DWORD, oper(DWORD, A), oper(deref(uMsg))),
-			mov(DWORD, oper(deref(msgTrace).offset(/*8*1*/8)), oper(DWORD, A)),
+//			mov(DWORD, oper(DWORD, A), oper(deref(uMsg))),
+//			mov(DWORD, oper(deref(msgTrace).offset(/*8*1*/8)), oper(DWORD, A)),
 //			mov(QWORD, oper(QWORD, A), oper(deref(wParam))),
 //			mov(QWORD, oper(deref(msgTrace).offset(8*2)), oper(QWORD, A)),
 //			mov(QWORD, oper(QWORD, A), oper(deref(lParam))),
 //			mov(QWORD, oper(deref(msgTrace).offset(8*3)), oper(QWORD, A)),
-			trace(join(
-				"WndProc called:"
+//			trace(join(
+//				"WndProc called:"
 //				,"  hwnd: %1!.16llX!",
-				,"  message: %2!.4llX!"
+//				,"  message: %2!.4llX!"
 //				,"  wParam: %3!.16llX!"
 //				,"  lParam: %4!.16llX!"
-				), msgTrace),
-			mov(QWORD, oper(QWORD, D), oper(deref(uMsg))),
+//				), msgTrace),
+//			mov(QWORD, oper(QWORD, D), oper(deref(uMsg))),
 			
 			comment("switch(uMsg) {"),
 			jmp_if(QWORD, oper(QWORD, D), EQUAL, bitField(WM_ACTIVATE), WndProc_return_zero),
@@ -301,24 +299,25 @@ public class Main
 			jmp_if(QWORD, oper(QWORD, D), EQUAL, bitField(WM_KEYDOWN), WndProc_return_zero),
 			jmp_if(QWORD, oper(QWORD, D), EQUAL, bitField(WM_KEYUP), WndProc_return_zero),
 			jmp_if(QWORD, oper(QWORD, D), EQUAL, bitField(WM_SIZE), WndProc_return_zero),
-			trace("falling through"),
 			def_label(WM_Default),
 			comment("default window procedure handles messages for us"),
-			trace("WM_Default DefWindowProcA"),
-			assign_call(success, DefWindowProcA(
+			assign_call(success, ignoreError(DefWindowProcA(
 				deref(hWnd),
 				deref(uMsg),
 				deref(wParam),
 				deref(lParam)
-			)),
-			// TODO: it doesn't appear to be our fault, but during shutdown this
-			//       winapi proc returns an error about invalid window handle.
-			//       that's because the window handle existed when it entered
-			//       but was destroyed during the middle of the procedure.
-			//       so for now we just ignore errors from this function since
-			//       there's not too much we could do if there were any here 
-			//       anyway.
+			))),
+			// only clear the error if the app is shutting down
+			jmp_if(DWORD, oper(deref(shutdown)), NOT_EQUAL, oper(true), label_dont_clear),
+			// it doesn't appear to be our fault, but during shutdown this
+			// winapi proc returns an error about invalid window handle.
+			// that's because the window handle existed when it entered
+			// but was destroyed during the middle of the procedure.
+			// so for now we just ignore errors from this function since
+			// there's not too much we could do if there were any here 
+			// anyway.
 			call(SetLastError(0)),
+			def_label(label_dont_clear),
 			ret(width(QWORD, oper(deref(success)))),
 
 		def_label(WM_SysCommand),
@@ -328,19 +327,16 @@ public class Main
 			jmp(WM_Default),
 	
 		def_label(WM_Close),
-			trace( "WM_Close pre - could prompt the user, but we don't care"),
+			// set global shutdown flag so all loops know to abort
+			mov(DWORD, oper(deref(shutdown)), oper(true)),
 			call(DestroyWindow(deref(window))),
-			trace( "WM_Close post - it must be the error happens about here"),
 			jmp(WndProc_return_zero),
 	
 		def_label(WM_Destroy),
-			trace( "WM_Destroy pre"),
 			call(PostQuitMessage(0)),
-			trace( "WM_Destroy post"),
 			jmp(WndProc_return_zero),
 
 		def_label(WndProc_return_zero),
-			trace("WndProc return 0"),
 			ret(width(QWORD, Null())),
 
 			block("PROCS")

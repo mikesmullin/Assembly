@@ -792,11 +792,9 @@ public class Macros
 				"ret\n",
 		
 				def_label(handle_error),
-				trace("yes this is an error"),
 				printf(GetErrorMessage(deref(error_code)),
 					// avoid recursively checking for errors
 					WriteToPipe::stdout_without_fail_check), // TODO: use stderr--except it lags in intellij :(
-				trace("you just saw an error"),
 				exit(oper(deref(error_code)))));
 		});
 	}
@@ -849,7 +847,7 @@ public class Macros
 			data(exit_code, DWORD);
 			blocks.get("PROCS").append(join(
 				def_label(exit_label),
-				trace("Exiting as instructed"),
+				Console.log("shutdown complete."),
 				call(ignoreError(ExitProcess(deref(exit_code)))),
 				// the following _should_ be unnecessary if correctly exits
 				"ret",
