@@ -21,14 +21,17 @@ REM export PATH="${PATH}:/c/Program Files/PellesC/Bin/"
 REM cmd.exe:
 REM set PATH=%PATH%;C:\Program Files (x86)\Windows Kits\10\Debuggers\x64\
 
+
 echo clean old build output
 del "build\test.exe" "build\test.obj" "build\test.lst"
+if %errorlevel% neq 0 exit
 
 echo use NASM to compile intermediary binary (*.obj)
 "C:\Users\Mike\AppData\Local\bin\NASM\nasm.exe" ^
 	-f win64 "build\test.nasm" ^
 	-l "build\test.lst" ^
 	-o "build\test.obj"
+if %errorlevel% neq 0 exit
 
 echo statically link binary and external libraries into final (PE) executable (*.exe)
 "C:\Program Files\mingw-w64\x86_64-6.1.0-posix-seh-rt_v5-rev0\mingw64\bin\ld.exe" ^
@@ -37,9 +40,12 @@ echo statically link binary and external libraries into final (PE) executable (*
 	"C:\Program Files\PellesC\Lib\Win64\user32.lib" ^
 	"C:\Program Files\PellesC\Lib\Win64\gdi32.lib" ^
 	-o "build\test.exe"
+if %errorlevel% neq 0 exit
 
 echo list output file size, in bytes
 dir build
 
 echo run the program
 "build\test.exe"
+
+echo errorlevel: %errorlevel%

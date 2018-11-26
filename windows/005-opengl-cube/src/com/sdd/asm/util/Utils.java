@@ -30,6 +30,6 @@ public class Utils
 
 	public static String joinUnlessEmpty(final String a, final String delim, final String b)
 	{
-		return "" + (isEmpty(a) ? "" : a + delim) + b;
+		return isEmpty(a) ? b : isEmpty(b) ? a : (a + delim + b);
 	}
 }

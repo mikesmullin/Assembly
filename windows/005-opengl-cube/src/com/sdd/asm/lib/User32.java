@@ -79,7 +79,7 @@ public class User32
 			}},
 			width(QWORD, placeholder("HANDLE")));
 	}
-
+	
 	public static Struct tagMSG = new Struct("tagMSG")
 		.put("hwnd", HWND, oper(0))
 		.put("message", UINT, oper(0))
@@ -90,22 +90,32 @@ public class User32
 		.put("pt.y", DWORD, oper(0))
 		.put("lPrivate", DWORD, oper(0));
 
-	public static final int PM_REMOVE       = 0x0001;
-	public static final int WM_QUIT         = 0x0012;
-	public static final int WM_ACTIVATE     = 0x0006;
-	public static final int WM_SYSCOMMAND   = 0x0112;
-	public static final int WM_CLOSE        = 0x0010;
-	public static final int WM_DESTROY      = 0x0002;
-	public static final int WM_KEYDOWN      = 0x0100;
-	public static final int WM_KEYUP        = 0x0101;
-	public static final int WM_SIZE         = 0x0005;
+	public static final int PM_REMOVE = 0x0001;
+
+	public enum WindowMessage implements BitField
+	{
+		WM_QUIT         (0x0012),
+		WM_ACTIVATE     (0x0006),
+		WM_SYSCOMMAND   (0x0112),
+		WM_CLOSE        (0x0010),
+		WM_DESTROY      (0x0002),
+		WM_NCDESTROY    (0x0082),
+		WM_KEYDOWN      (0x0100),
+		WM_KEYUP        (0x0101),
+		WM_SIZE         (0x0005);
+		
+		public final int value;
+		WindowMessage(final int value) { this.value = value; }
+		public String getName() { return name(); }
+		public int getValue() { return value; }
+	}
 	
 	public static final int SC_SCREENSAVE   = 0x0F140;
 	public static final int SC_MONITORPOWER = 0x0F170;
 	
 	public static Proc PeekMessageA(
 		final LabelReference lpMsg,
-		final LabelReference hWnd,
+		final Operand hWnd,
 		final int wMsgFilterMin,
 		final int wMsgFilterMax,
 		final int wRemoveMsg
@@ -113,7 +123,7 @@ public class User32
 		return new Proc(addrOf(extern(label(Scope.GLOBAL,"PeekMessageA", true))),
 			new ArrayList<SizedOp>() {{
 				add(width(QWORD, oper(lpMsg).comment("LPMSG lpMsg")));
-				add(width(QWORD, oper(hWnd).comment("HWND hWnd")));
+				add(width(QWORD, hWnd.comment("HWND hWnd")));
 				add(width(DWORD, oper(wMsgFilterMin).comment("UINT wMsgFilterMin")));
 				add(width(DWORD, oper(wMsgFilterMax).comment("UINT wMsgFilterMax")));
 				add(width(DWORD, oper(wRemoveMsg).comment("UINT wRemoveMsg")));
@@ -131,25 +141,41 @@ public class User32
 			returnVal(QWORD, "HANDLE"));
 	}
 
-	public static final int WS_EX_WINDOWEDGE = 0x00000100;
-	
-	public static final int WS_CLIPCHILDREN  = 0x02000000;
-	public static final int WS_CLIPSIBLINGS  = 0x04000000;
-	public static final int WS_VISIBLE       = 0x10000000;
-	public static final int WS_OVERLAPPED    = 0x00000000;
-	public static final int WS_CAPTION       = 0x00C00000;
-	public static final int WS_SYSMENU       = 0x00080000;
-	public static final int WS_THICKFRAME    = 0x00040000;
-	public static final int WS_MINIMIZEBOX   = 0x00020000;
-	public static final int WS_MAXIMIZEBOX   = 0x00010000;
+	public enum WindowExtendedStyle implements BitField
+	{
+		WS_EX_WINDOWEDGE (0x00000100);
+
+		public final int value;
+		WindowExtendedStyle(final int value) { this.value = value; }
+		public String getName() { return name(); }
+		public int getValue() { return value; }
+	}
+
+	public enum WindowStyle implements BitField
+	{
+		WS_CLIPCHILDREN (0x02000000),
+		WS_CLIPSIBLINGS (0x04000000),
+		WS_VISIBLE      (0x10000000),
+		WS_OVERLAPPED   (0x00000000),
+		WS_CAPTION      (0x00C00000),
+		WS_SYSMENU      (0x00080000),
+		WS_THICKFRAME   (0x00040000),
+		WS_MINIMIZEBOX  (0x00020000),
+		WS_MAXIMIZEBOX  (0x00010000);
+		
+		public final int value;
+		WindowStyle(final int value) { this.value = value; }
+		public String getName() { return name(); }
+		public int getValue() { return value; }
+	}
 	
 	public static final int CW_USEDEFAULT    = 0x80000000;
 
 	public static Proc CreateWindowExA(
-		final int dwExStyle,
+		final Operand dwExStyle,
 		final LabelReference lpClassName,
 		final LabelReference lpWindowName,
-		final int dwStyle,
+		final Operand dwStyle,
 		final int x,
 		final int y,
 		final int nWidth,
@@ -161,11 +187,11 @@ public class User32
 	) {
 		return new Proc(addrOf(extern(label(Scope.GLOBAL,"CreateWindowExA", true))),
 			new ArrayList<SizedOp>(){{
-				add(width(QWORD, oper(dwExStyle).comment("DWORD dwExStyle")));
+				add(width(QWORD, dwExStyle.comment("DWORD dwExStyle")));
 				// NOTICE: the name used there has to be the same as the one used for RegisterClass
 				add(width(QWORD, oper(lpClassName).comment("LPCSTR lpClassName")));
 				add(width(QWORD, oper(lpWindowName).comment("LPCSTR lpWindowName")));
-				add(width(QWORD, oper(dwStyle).comment("DWORD dwStyle")));
+				add(width(QWORD, dwStyle.comment("DWORD dwStyle")));
 				add(width(DWORD, oper(x).comment("int X")));
 				add(width(DWORD, oper(y).comment("int Y")));
 				add(width(DWORD, oper(nWidth).comment("int nWidth")));

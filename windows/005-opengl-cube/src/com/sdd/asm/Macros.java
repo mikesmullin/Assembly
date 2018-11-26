@@ -11,6 +11,7 @@ import java.util.concurrent.atomic.AtomicInteger;
 
 import static com.sdd.asm.util.Utils.*;
 import static com.sdd.asm.lib.Kernel32.*;
+import static com.sdd.asm.lib.Kernel32.FormatMessageFlags.*;
 import static com.sdd.asm.lib.Opengl32.*;
 import static com.sdd.asm.Macros.Scope.*;
 import static com.sdd.asm.Macros.Size.*;
@@ -257,6 +258,7 @@ public class Macros
 	{
 		public final Label label;
 		public final LabelReferenceType type;
+		public int offset = 0;
 		private LabelReference(final Label label, final LabelReferenceType type)
 		{
 			this.label = label;
@@ -270,11 +272,17 @@ public class Macros
 				case ADDRESS_OF:
 					return label.toString();
 				case DEREFERENCE:
-					return "[" + label +"]";
+					return "[" + label + (offset > 0 ? " + "+ offset : offset < 0 ? " - "+ offset : "") +"]";
 				default:
 					_assert("Invalid type!");
 					return "";
 			}
+		}
+		
+		public LabelReference offset(final int offset)
+		{
+			this.offset = offset;
+			return this;
 		}
 	}
 	
@@ -406,6 +414,10 @@ public class Macros
 	public static Operand oper(final LabelReference value)
 	{
 		final Operand r = new Operand();
+		if (null == value)
+		{
+			return Null();
+		}
 		r.rm = value;
 		r.value = value.toString();
 		return r;
@@ -442,6 +454,7 @@ public class Macros
 	 */
 	public static LabelReference addrOf(final Label label)
 	{
+		if (null == label) return null;
 		return new LabelReference(label, LabelReferenceType.ADDRESS_OF);
 	}
 
@@ -752,32 +765,39 @@ public class Macros
 		label(GLOBAL, "GetLastError__prologue_reset");
 	private static final Label error_epilogue =
 		label(GLOBAL, "GetLastError__epilogue_check");
+	private static final Label error_lookup =
+		label(GLOBAL, "GetLastError__epilogue_lookup");
 	private static final Label error_code =
 		label(GLOBAL, "GetLastError__errCode");
 	private static final Label handle_error =
 		label(LOCAL, "error");
 	static {
 		onready(()->{
-			blocks.get("PROCS").append("\n")
+			blocks.get("PROCS").append(join(
 				// ensure last error is 0
 				// invoked before calling a function which may or may not have lasterror support
 				// makes us more confident calling GetLastError after a procedure runs to ensure 
 				// it was ok (if everything is still 0)
-				.append(def_label(error_prologue)).append("\n")
-				.append(call(SetLastError(0)))
-				.append("\nret\n\n")
+				def_label(error_prologue),
+				call(SetLastError(0)),
+				"ret\n",
 		
-				.append(def_label(error_epilogue)).append("\n")
-				.append(assign_call(error_code, GetLastError()))
-				.append(jmp_if(DWORD, oper(DWORD, A), NOT_EQUAL, oper(0), 
-					handle_error))
-				.append("\nret\n\n")
+				def_label(error_epilogue),
+				// last command must have returned 0x0 in RAX, indicating an error occurred
+				jmp_if(DWORD, oper(DWORD, A), EQUAL, oper(0), error_lookup),
+				"ret\n",
+				def_label(error_lookup),
+				assign_call(error_code, GetLastError()),
+				jmp_if(DWORD, oper(DWORD, A), NOT_EQUAL, oper(0), handle_error),
+				"ret\n",
 		
-				.append(def_label(handle_error)).append("\n")
-				.append(printf(GetErrorMessage(deref(error_code)),
+				def_label(handle_error),
+				trace("yes this is an error"),
+				printf(GetErrorMessage(deref(error_code)),
 					// avoid recursively checking for errors
-					(a,b)->setConvention(Macros::__ms_fastcall_64, Console.log(a,b)))).append("\n")
-				.append(exit(oper(deref(error_code))));
+					WriteToPipe::stdout_without_fail_check), // TODO: use stderr--except it lags in intellij :(
+				trace("you just saw an error"),
+				exit(oper(deref(error_code)))));
 		});
 	}
 	/**
@@ -786,9 +806,10 @@ public class Macros
 	 */
 	public static String __ms_fastcall_64_w_error_check(final Proc proc)
 	{
-		return "    call GetLastError__prologue_reset\n" +
-			__ms_fastcall_64(proc) +
-			"    call GetLastError__epilogue_check\n";
+		return join(
+			"    call GetLastError__prologue_reset",
+			__ms_fastcall_64(proc),
+			"    call GetLastError__epilogue_check");
 	}
 
 	private static final Label gl_error_epilogue =
@@ -806,10 +827,7 @@ public class Macros
 				"ret\n",
 
 				def_label(gl_handle_error),
-				printf(setConvention(Macros::__ms_fastcall_64,
-					FormatString("glError %1!.8llX!\n", gl_error_code)),
-					// avoid recursively checking for errors
-					(a,b)->setConvention(Macros::__ms_fastcall_64, Console.log(a,b))),
+				Console.error("glError %1!.8llX!\n", gl_error_code),
 				exit(oper(deref(gl_error_code)))));
 		});
 	}
@@ -831,7 +849,8 @@ public class Macros
 			data(exit_code, DWORD);
 			blocks.get("PROCS").append(join(
 				def_label(exit_label),
-				call(ExitProcess(deref(exit_code))),
+				trace("Exiting as instructed"),
+				call(ignoreError(ExitProcess(deref(exit_code)))),
 				// the following _should_ be unnecessary if correctly exits
 				"ret",
 				jmp(exit_label)));
@@ -883,16 +902,15 @@ public class Macros
 		final LabelReference dwMessageId
 	) {
 		// avoid recursively checking for errors
-		return setConvention(Macros::__ms_fastcall_64,
-			FormatMessageA(
-				FORMAT_MESSAGE_FROM_SYSTEM |
-					FORMAT_MESSAGE_IGNORE_INSERTS,
-				Null(),
-				oper(dwMessageId),
-				LANG_USER_DEFAULT__SUBLANG_DEFAULT,
-				addrOf(format_buffer),
-				FORMAT_BUFFER_SIZE,
-				Null()));
+		return ignoreError(FormatMessageA(
+			bitField(FORMAT_MESSAGE_FROM_SYSTEM,
+				FORMAT_MESSAGE_IGNORE_INSERTS),
+			Null(),
+			oper(dwMessageId),
+			bitField(LANG_USER_DEFAULT__SUBLANG_DEFAULT),
+			addrOf(format_buffer),
+			FORMAT_BUFFER_SIZE,
+			Null()));
 	}
 
 	/**
@@ -906,11 +924,11 @@ public class Macros
 		final Label label = label(GLOBAL, "FormatString");
 		data(label, BYTE, nullstr(format));
 		return FormatMessageA(
-			FORMAT_MESSAGE_ARGUMENT_ARRAY |
-				FORMAT_MESSAGE_FROM_STRING,
+			bitField(FORMAT_MESSAGE_ARGUMENT_ARRAY,
+				FORMAT_MESSAGE_FROM_STRING),
 			oper(addrOf(label)),
 			Null(),
-			0,
+			Null(),
 			addrOf(format_buffer),
 			FORMAT_BUFFER_SIZE,
 			oper(addrOf(arrayPtr)));
@@ -944,18 +962,19 @@ public class Macros
 	static
 	{
 		onready(()->{
-			data(Console.bytesWritten, DWORD);
+			data(WriteToPipe.bytesWritten, DWORD);
 			blocks.get("INIT").append(join(
 				comment("get pointers to stdout/stderr pipes"),
-				assign_call(Console.stderr, GetStdHandle(STD_ERROR_HANDLE)),
-				assign_call(Console.stdout, GetStdHandle(STD_OUTPUT_HANDLE))));
+				assign_call(WriteToPipe.stderr, GetStdHandle(STD_ERROR_HANDLE)),
+				assign_call(WriteToPipe.stdout, GetStdHandle(STD_OUTPUT_HANDLE))));
 		});
 	}
+	
 	/**
 	 * Uses Windows Kernel32.dll WriteFile to print to STDOUT or STDERR.
 	 * Useful when debugging.
 	 */
-	public static class Console
+	public static class WriteToPipe
 	{
 		static final Label bytesWritten =
 			label(GLOBAL, "WriteFile__bytesWritten");
@@ -964,7 +983,7 @@ public class Macros
 		static final Label stdout =
 			label(GLOBAL, "Console__stdout_nStdHandle");
 
-		public static Proc log(final Label str, final Label len)
+		public static Proc stdout(final Label str, final Label len)
 		{
 			return WriteFile(
 				stdout,
@@ -974,7 +993,12 @@ public class Macros
 				Null());
 		}
 
-		public static Proc error(final Label str, final Label len)
+		public static Proc stdout_without_fail_check(final Label str, final Label len)
+		{
+			return ignoreError(stdout(str, len));
+		}
+		
+		public static Proc stderr(final Label str, final Label len)
 		{
 			return WriteFile(
 				stderr,
@@ -983,13 +1007,47 @@ public class Macros
 				bytesWritten,
 				Null());
 		}
+		
+		public static Proc stderr_without_fail_check(final Label str, final Label len)
+		{
+			return ignoreError(stderr(str, len));
+		}
 	}
-
-	private static Proc setConvention(
-		final Callback1<Proc,String> convention,
-		final Proc proc
-	) {
-		proc.convention = convention;
+	
+	public static class Console
+	{
+		public static String log(final String format, final Label arrayptr)
+		{
+			return printf(ignoreError(FormatString( format+"\n", arrayptr)),
+				WriteToPipe::stdout_without_fail_check);
+		}
+		
+		public static String log(final String msg)
+		{
+			return log(msg, null);
+		}
+		
+		public static String error(final String format, final Label arrayptr)
+		{
+			return printf(ignoreError(FormatString( format+"\n", arrayptr)),
+				WriteToPipe::stderr_without_fail_check);
+		}
+	}
+	
+	public static String trace(final String msg)
+	{
+		final StackTraceElement stack = Thread.currentThread().getStackTrace()[2];
+		return Console.log(stack.getFileName().replace(".java","")+":"+stack.getLineNumber()+": "+ msg);
+	}
+	
+	public static String trace(final String msg, final Label arrayptr)
+	{
+		final StackTraceElement stack = Thread.currentThread().getStackTrace()[2];
+		return Console.log(stack.getFileName().replace(".java","")+":"+stack.getLineNumber()+": "+ msg, arrayptr);
+	}
+	
+	public static Proc ignoreError(final Proc proc) {
+		proc.convention = Macros::__ms_fastcall_64;
 		return proc;
 	}
 
@@ -1272,7 +1330,7 @@ public class Macros
 	{
 		return join("call "+ label);
 	}
-
+	
 	/**
 	 * Performs an assignment of the return op from a procedure call.
 	 */
@@ -1307,10 +1365,7 @@ public class Macros
 		final Operand dst,
 		final Operand src
 	) {
-		return "mov "+ size +" "+ dst +", "+ src +
-			((!isEmpty(dst.comment) || !isEmpty(src.comment)) ? " ;" : "") +
-			(null == dst.comment ? "" : dst.comment) +
-			(null == src.comment ? "" : (null == dst.comment ? "" : " ") + src.comment);
+		return "mov "+ size +" "+ dst +", "+ src + formatComment(dst, src);
 	}
 
 	/**
@@ -1351,10 +1406,33 @@ public class Macros
 		final Label label
 	)
 	{
-		return "cmp "+ size.toString().toLowerCase() +" "+ a +", "+ b +"\n"+
+		return "cmp "+ size.toString().toLowerCase() +" "+ a +", "+ b + formatComment(a,b) +"\n"+
 			"j"+ cmp.abbrev.toLowerCase() +" near "+ label;
 	}
+	
+	public static String formatComment(final Operand a, final Operand b)
+	{
+		final String comment = joinUnlessEmpty(a.comment, " ", b.comment);
+		return isEmpty(comment) ? "" : " ; "+ comment;
+	}
 
+	public interface BitField
+	{
+		String getName();
+		int getValue();
+	}
+	public static Operand bitField(final BitField... flags)
+	{
+		int value = 0;
+		String comment = "";
+		for (final BitField flag : flags)
+		{
+			value |= flag.getValue();
+			comment = joinUnlessEmpty(comment, " | ", flag.getName());
+		}
+		return oper(value).comment(comment);
+	}
+	
 	/**
 	 * Near-jump in NASM syntax.
 	 */

@@ -62,32 +62,40 @@ public class Kernel32
 			returnVal(DWORD, "DWORD dwErrCode"));
 	}
 	
-	public static final int FORMAT_MESSAGE_FROM_SYSTEM = 0x00001000;
-	public static final int FORMAT_MESSAGE_IGNORE_INSERTS = 0x00000200;
-	public static final int FORMAT_MESSAGE_ARGUMENT_ARRAY = 0x00002000;
-	public static final int FORMAT_MESSAGE_FROM_STRING = 0x00000400;
-	public static final int LANG_USER_DEFAULT__SUBLANG_DEFAULT = 0x0400;
+	public enum FormatMessageFlags implements BitField
+	{
+		FORMAT_MESSAGE_FROM_SYSTEM  (0x00001000),
+		FORMAT_MESSAGE_IGNORE_INSERTS  (0x00000200),
+		FORMAT_MESSAGE_ARGUMENT_ARRAY  (0x00002000),
+		FORMAT_MESSAGE_FROM_STRING  (0x00000400),
+		LANG_USER_DEFAULT__SUBLANG_DEFAULT  (0x0400);
 
+		public final int value;
+		FormatMessageFlags(final int value) { this.value = value; }
+		public String getName() { return name(); }
+		public int getValue() { return value; }
+	}
+	
 	/**
 	 * Similar to libc printf()
 	 * 
 	 * see: https://docs.microsoft.com/en-us/windows/desktop/api/winbase/nf-winbase-formatmessagea#remarks
 	 */
 	public static Proc FormatMessageA(
-		final int dwFlags,
+		final Operand dwFlags,
 		final Operand lpSource,
 		final Operand dwMessageId,
-		final int dwLanguageId,
+		final Operand dwLanguageId,
 		final LabelReference lpBuffer,
 		final int nSize,
 		final Operand Arguments
 	) {
 		return new Proc(addrOf(extern(label(Scope.GLOBAL,"FormatMessageA", true))),
 			new ArrayList<SizedOp>(){{
-				add(width(DWORD, oper(dwFlags).comment("DWORD dwFlags")));
+				add(width(DWORD, dwFlags.comment("DWORD dwFlags")));
 				add(width(DWORD, lpSource.comment("LPCVOID lpSource")));
 				add(width(DWORD, dwMessageId.comment("DWORD dwMessageId")));
-				add(width(DWORD, oper(dwLanguageId).comment("DWORD dwLanguageId")));
+				add(width(DWORD, dwLanguageId.comment("DWORD dwLanguageId")));
 				add(width(QWORD, oper(lpBuffer).comment("LPSTR lpBuffer")));
 				add(width(QWORD, oper(nSize).comment("DWORD nSize")));
 				add(width(QWORD, Arguments.comment("va_list *Arguments")));

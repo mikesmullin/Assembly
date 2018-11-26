@@ -10,10 +10,12 @@ import static com.sdd.asm.Macros.Compare.*;
 // interfaces
 import static com.sdd.asm.lib.Kernel32.*;
 import static com.sdd.asm.lib.User32.*;
+import static com.sdd.asm.lib.User32.WindowMessage.*;
+import static com.sdd.asm.lib.User32.WindowExtendedStyle.*;
+import static com.sdd.asm.lib.User32.WindowStyle.*;
 import static com.sdd.asm.lib.Gdi32.*;
 import static com.sdd.asm.lib.Opengl32.*;
 import static com.sdd.asm.lib.Opengl32.GlParam.*;
-import static com.sdd.asm.lib.Opengl32.GlShaderType.*;
 
 public class Main
 {
@@ -59,7 +61,7 @@ public class Main
 			
 			def_label(handleError),
 			assign_call(errorLen, LocalSize(error)),
-			call(Console.log(error, errorLen)),
+			call(WriteToPipe.stdout(error, errorLen)),
 			exit(oper(1)),
 			def_label(done));
 		return shader;
@@ -90,22 +92,21 @@ public class Main
 		final Label Render = label(LOCAL, "Render");
 		final Label ProcessMessage = label(LOCAL, "Loop__processMessage");
 		final Label WndProc = label(GLOBAL, "WndProc");
+		final Label WndProc_return_zero = label(GLOBAL, "WndProc__return");
 		final Label hWnd = label(GLOBAL, "WndProc__hWnd");
 		final Label uMsg = label(GLOBAL, "WndProc__uMsg");
 		final Label wParam = label(GLOBAL, "WndProc__wParam");
 		final Label lParam = label(GLOBAL, "WndProc__lParam");
-		final Label WM_Activate = label(LOCAL, "WM_Activate");
 		final Label WM_SysCommand = label(LOCAL, "WM_SysCommand");
 		final Label WM_Close = label(LOCAL, "WM_Close");
 		final Label WM_Destroy = label(LOCAL, "WM_Destroy");
-		final Label WM_KeyDown = label(LOCAL, "WM_KeyDown");
-		final Label WM_KeyUp = label(LOCAL, "WM_KeyUp");
-		final Label WM_Size = label(LOCAL, "WM_Size");
 		final Label WM_Default = label(LOCAL, "default");
-		final Label WM_Zero = label(LOCAL, "return_zero");
 		final Label glString = label(GLOBAL, "glString");
+		final Label msgTrace = label(GLOBAL, "__message_trace");
+		final Label dbgLastError = label(GLOBAL, "__debug_last_error");
+		data(msgTrace, 8, QWORD);
 		asm(
-			def_label(main),
+		def_label(main),
 			block("INIT"),
 
 			comment("verify the window is not open twice"),
@@ -123,6 +124,7 @@ public class Main
 			assign_call(process, GetModuleHandleA(Null())),
 	
 			comment("load references to the default icons for new windows"),
+			// TODO: could finish separating out bitFields cleanly throughout
 			assign_call(icon, LoadImageA(Null(), oper(OIC_WINLOGO), IMAGE_ICON, 
 				0, 0, LR_SHARED | LR_DEFAULTSIZE)),
 	
@@ -143,12 +145,13 @@ public class Main
 				}})))),
 	
 			assign_call(window, CreateWindowExA(
-				WS_EX_WINDOWEDGE,
+				// TODO: could probably require specific enums instead of general, for extra validating precision
+				bitField(WS_EX_WINDOWEDGE),
 				addrOf(uuid),
 				addrOf(data(title, BYTE, nullstr("OpenGL Demo"))),
-				WS_OVERLAPPED | WS_CAPTION | WS_SYSMENU | 
-					WS_THICKFRAME | WS_MINIMIZEBOX | WS_MAXIMIZEBOX |
-					WS_VISIBLE | WS_CLIPCHILDREN | WS_CLIPSIBLINGS,
+				bitField(WS_OVERLAPPED, WS_CAPTION, WS_SYSMENU, 
+					WS_THICKFRAME, WS_MINIMIZEBOX, WS_MAXIMIZEBOX,
+					WS_VISIBLE, WS_CLIPCHILDREN, WS_CLIPSIBLINGS),
 				CW_USEDEFAULT,
 				CW_USEDEFAULT,
 				640,
@@ -179,12 +182,11 @@ public class Main
 					put("iLayerType", oper(PFD_MAIN_PLANE).comment("= PFD_MAIN_PLANE"));
 				}})))),
 	
-			assign_call(success,
-				SetPixelFormat(
-					deref(ctx2d),
-					deref(pixelFormat),
-					addrOf(PixelFormat)
-				)),
+			assign_call(success, SetPixelFormat(
+				deref(ctx2d),
+				deref(pixelFormat),
+				addrOf(PixelFormat)
+			)),
 	
 			dllimport("opengl32"
 				,"wglCreateContext"
@@ -205,96 +207,140 @@ public class Main
 			assign_call(success, wglMakeCurrent(deref(ctx2d), deref(ctx))),
 	
 			assign_call(glString, glGetString(oper(GL_VERSION).comment("GL_VERSION"))),
-			printf(FormatString( "GL_VERSION: %1\n", glString), Console::log),
-//			exit(oper(0)),
+			Console.log( "GL_VERSION: %1\n", glString),
 			
 			call(glClearColor(0, 0, 1, 1)),
 	
-			def_label(Loop),
+		def_label(Loop),
 	
+			trace("check messages"),
 			assign_call(success, PeekMessageA(
 				addrOf(IncomingMessage = istruct("IncomingMessage", tagMSG)),
-				deref(window),
+				Null(), // process messages for all windows of this thread, we will only have one anyway
 				0,
 				0,
 				PM_REMOVE
 			)),
 	
 			comment("if zero messages, skip handling messages"),
-			// TODO: make class ImmediateOrLabelReference which encapsulates all possible int, float, etc. inputs and converting them to strings
 			jmp_if(DWORD, oper(deref(success)), EQUAL, oper(0), Render),
 	
-			comment("", "exit if message is WM_QUIT"),
-			// TODO: teach istruct to make label members we can .get("field") which return LabelReference
-			jmp_if(DWORD, oper(deref(IncomingMessage.get("message"))), NOT_EQUAL, oper(WM_QUIT), ProcessMessage),
+			jmp_if(DWORD, oper(deref(IncomingMessage.get("message"))), NOT_EQUAL, bitField(WM_QUIT), ProcessMessage),
 	
+			trace("I am probably forgetting to free some memory"),
 			exit(oper(0)),
 	
-			def_label(ProcessMessage),
-	
+		def_label(ProcessMessage),
+//			mov(QWORD, oper(QWORD, A), oper(deref(IncomingMessage.get("hwnd")))),
+//			mov(QWORD, oper(deref(msgTrace).offset(8*0)), oper(QWORD, A)),
+//			mov(QWORD, oper(DWORD, A), oper(deref(IncomingMessage.get("message")))),
+//			mov(DWORD, oper(deref(msgTrace).offset(8*1)), oper(DWORD, A)),
+//			mov(QWORD, oper(QWORD, A), oper(deref(IncomingMessage.get("wParam")))),
+//			mov(QWORD, oper(deref(msgTrace).offset(8*2)), oper(QWORD, A)),
+//			mov(QWORD, oper(QWORD, A), oper(deref(IncomingMessage.get("lParam")))),
+//			mov(QWORD, oper(deref(msgTrace).offset(8*3)), oper(QWORD, A)),
+//			mov(DWORD, oper(DWORD, A), oper(deref(IncomingMessage.get("pt.x")))),
+//			mov(DWORD, oper(deref(msgTrace).offset(8*4)), oper(DWORD, A)),
+//			mov(DWORD, oper(DWORD, A), oper(deref(IncomingMessage.get("pt.y")))),
+//			mov(DWORD, oper(deref(msgTrace).offset(8*5)), oper(DWORD, A)),
+//			mov(DWORD, oper(DWORD, A), oper(deref(IncomingMessage.get("lPrivate")))),
+//			mov(DWORD, oper(deref(msgTrace).offset(8*6)), oper(DWORD, A)),
+			trace("message received"),
+//			trace("Message received:\n"+
+//				"  hwnd: %1!.16llX!\n"+
+//				"  message: %2!.4llX!\n"+
+//				"  wParam: %3!.16llX!\n"+
+//				"  lParam: %4!.16llX!\n"+
+//				"  time: %5!.16llX!\n"+
+//				"  pt.x: %6!lu!\n"+
+//				"  pt.y: %7!lu!\n"+
+//				"  lPrivate: %8!.8llX!\n", msgTrace),
+			trace("translate it"),
 			call(TranslateMessage(addrOf(IncomingMessage))),
+			trace("dispatch it"),
 			call(DispatchMessageA(addrOf(IncomingMessage))),
-	
-			def_label(Render),
-	
+			trace("done dispatching it"),
+			
+		def_label(Render),
+			trace("begin render"),
 			call(glClear(GL_COLOR_BUFFER_BIT)),
 	
 			assign_call(success, SwapBuffers(deref(ctx2d))),
 	
 			jmp(Loop),
 	
-			def_label(WndProc),
+		def_label(WndProc),
 			comment("move local registers to local shadow space to preserve them"),
 			assign_mov(QWORD, hWnd, oper(QWORD, C)),
 			assign_mov(QWORD, uMsg, oper(QWORD, D)),
 			assign_mov(QWORD, wParam, oper(QWORD, R8)),
 			assign_mov(QWORD, lParam, oper(QWORD, R9)),
-	
+//			mov(QWORD, oper(QWORD, A), oper(deref(hWnd))),
+//			mov(QWORD, oper(deref(msgTrace).offset(8*0)), oper(QWORD, A)),
+			mov(DWORD, oper(DWORD, A), oper(deref(uMsg))),
+			mov(DWORD, oper(deref(msgTrace).offset(/*8*1*/8)), oper(DWORD, A)),
+//			mov(QWORD, oper(QWORD, A), oper(deref(wParam))),
+//			mov(QWORD, oper(deref(msgTrace).offset(8*2)), oper(QWORD, A)),
+//			mov(QWORD, oper(QWORD, A), oper(deref(lParam))),
+//			mov(QWORD, oper(deref(msgTrace).offset(8*3)), oper(QWORD, A)),
+			trace(join(
+				"WndProc called:"
+//				,"  hwnd: %1!.16llX!",
+				,"  message: %2!.4llX!"
+//				,"  wParam: %3!.16llX!"
+//				,"  lParam: %4!.16llX!"
+				), msgTrace),
+			mov(QWORD, oper(QWORD, D), oper(deref(uMsg))),
+			
 			comment("switch(uMsg) {"),
-			jmp_if(QWORD, oper(QWORD, D), EQUAL, oper(WM_ACTIVATE), WM_Activate),
-			jmp_if(QWORD, oper(QWORD, D), EQUAL, oper(WM_SYSCOMMAND), WM_SysCommand),
-			jmp_if(QWORD, oper(QWORD, D), EQUAL, oper(WM_CLOSE), WM_Close),
-			jmp_if(QWORD, oper(QWORD, D), EQUAL, oper(WM_DESTROY), WM_Destroy),
-			jmp_if(QWORD, oper(QWORD, D), EQUAL, oper(WM_KEYDOWN), WM_KeyDown),
-			jmp_if(QWORD, oper(QWORD, D), EQUAL, oper(WM_KEYUP), WM_KeyUp),
-			jmp_if(QWORD, oper(QWORD, D), EQUAL, oper(WM_SIZE), WM_Size),
+			jmp_if(QWORD, oper(QWORD, D), EQUAL, bitField(WM_ACTIVATE), WndProc_return_zero),
+			jmp_if(QWORD, oper(QWORD, D), EQUAL, bitField(WM_SYSCOMMAND), WM_SysCommand),
+			jmp_if(QWORD, oper(QWORD, D), EQUAL, bitField(WM_CLOSE), WM_Close),
+			jmp_if(QWORD, oper(QWORD, D), EQUAL, bitField(WM_DESTROY), WM_Destroy),
+			jmp_if(QWORD, oper(QWORD, D), EQUAL, bitField(WM_NCDESTROY), WndProc_return_zero),
+			jmp_if(QWORD, oper(QWORD, D), EQUAL, bitField(WM_KEYDOWN), WndProc_return_zero),
+			jmp_if(QWORD, oper(QWORD, D), EQUAL, bitField(WM_KEYUP), WndProc_return_zero),
+			jmp_if(QWORD, oper(QWORD, D), EQUAL, bitField(WM_SIZE), WndProc_return_zero),
+			trace("falling through"),
 			def_label(WM_Default),
 			comment("default window procedure handles messages for us"),
+			trace("WM_Default DefWindowProcA"),
 			assign_call(success, DefWindowProcA(
 				deref(hWnd),
 				deref(uMsg),
 				deref(wParam),
 				deref(lParam)
 			)),
+			// TODO: it doesn't appear to be our fault, but during shutdown this
+			//       winapi proc returns an error about invalid window handle.
+			//       that's because the window handle existed when it entered
+			//       but was destroyed during the middle of the procedure.
+			//       so for now we just ignore errors from this function since
+			//       there's not too much we could do if there were any here 
+			//       anyway.
+			call(SetLastError(0)),
 			ret(width(QWORD, oper(deref(success)))),
 
-			def_label(WM_Activate),
-			ret(width(QWORD, Null())),
-
-			def_label(WM_SysCommand),
-			// TODO: finish consolidating mov, LabelReference, and bi-directional features
+		def_label(WM_SysCommand),
 			mov(DWORD, oper(DWORD, B), oper(deref(wParam))),
-			jmp_if(DWORD, oper(DWORD, B), EQUAL, oper(SC_SCREENSAVE), WM_Zero),
-			jmp_if(DWORD, oper(DWORD, B), EQUAL, oper(SC_MONITORPOWER), WM_Zero),
+			jmp_if(DWORD, oper(DWORD, B), EQUAL, oper(SC_SCREENSAVE), WndProc_return_zero),
+			jmp_if(DWORD, oper(DWORD, B), EQUAL, oper(SC_MONITORPOWER), WndProc_return_zero),
 			jmp(WM_Default),
-			def_label(WM_Zero),
-			ret(width(QWORD, Null())),
 	
-			def_label(WM_Close),
+		def_label(WM_Close),
+			trace( "WM_Close pre - could prompt the user, but we don't care"),
 			call(DestroyWindow(deref(window))),
-			ret(width(QWORD, Null())),
+			trace( "WM_Close post - it must be the error happens about here"),
+			jmp(WndProc_return_zero),
 	
-			def_label(WM_Destroy),
+		def_label(WM_Destroy),
+			trace( "WM_Destroy pre"),
 			call(PostQuitMessage(0)),
-			ret(width(QWORD, Null())),
-	
-			def_label(WM_KeyDown),
-			ret(width(QWORD, Null())),
-	
-			def_label(WM_KeyUp),
-			ret(width(QWORD, Null())),
+			trace( "WM_Destroy post"),
+			jmp(WndProc_return_zero),
 
-			def_label(WM_Size),
+		def_label(WndProc_return_zero),
+			trace("WndProc return 0"),
 			ret(width(QWORD, Null())),
 
 			block("PROCS")
