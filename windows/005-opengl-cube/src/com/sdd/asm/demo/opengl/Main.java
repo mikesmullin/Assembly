@@ -8,14 +8,20 @@ import static com.sdd.asm.Macros.Size.*;
 import static com.sdd.asm.Macros.Register.Name.*;
 import static com.sdd.asm.Macros.Compare.*;
 // interfaces
+import static com.sdd.asm.util.Utils.*;
 import static com.sdd.asm.lib.Kernel32.*;
 import static com.sdd.asm.lib.User32.*;
 import static com.sdd.asm.lib.User32.WindowMessage.*;
 import static com.sdd.asm.lib.User32.WindowExtendedStyle.*;
 import static com.sdd.asm.lib.User32.WindowStyle.*;
 import static com.sdd.asm.lib.Gdi32.*;
+import static com.sdd.asm.lib.Gdi32.PixelFormatFlags.*;
+import static com.sdd.asm.lib.Gdi32.PixelFormatLayerType.*;
+import static com.sdd.asm.lib.Gdi32.PixelFormatPixelType.*;
 import static com.sdd.asm.lib.Opengl32.*;
-import static com.sdd.asm.lib.Opengl32.GlParam.*;
+import static com.sdd.asm.lib.Opengl32.GlGetShaderIvPName.*;
+import static com.sdd.asm.lib.Opengl32.GlShaderType.*;
+import static com.sdd.asm.lib.Opengl32.GlType.*;
 
 public class Main
 {
@@ -25,7 +31,7 @@ public class Main
 		writeToDisk();
 	}
 	
-	private static String VERTEX_SHADER_SRC = 
+	private static String VERTEX_SHADER_SRC =
 		"attribute vec2 position;\n" + // the position of the point
 		"void main(void) {\n" + // pre-built function
 		"  gl_Position = vec4(position, 0., 1.);\n" + // 0. is the z, and 1 is w
@@ -41,27 +47,36 @@ public class Main
 		final String src,
 		final GlShaderType type
 	) {
-		final Label shader = label(GLOBAL, "glCreateShader__shader");
-		final Label sources = label(GLOBAL, "glShaderSource__sources");
-		final Label lengths = label(GLOBAL, "glShaderSource__lengths");
-		final Label error = label(GLOBAL, "glCompileShader__error");
-		final Label errorLen = label(GLOBAL, "glCompileShader__errorLen");
+		final Label shader;
+		final Label sources = data(label(GLOBAL, "glShaderSource__sources"), BYTE, nullstr(src));
+		final Label sourcesArray = data(label(GLOBAL, "glShaderSource__sources_array"), QWORD, sources.toString());
+		final Label lengths = data(label(GLOBAL, "glShaderSource__lengths"), DWORD, Integer.toString(src.length()));
+		final Label success = data(label(GLOBAL, "glCompileShader__success"), DWORD);
 		final Label handleError = label(LOCAL, "newShader__handleError");
 		final Label done = label(LOCAL, "newShader__done");
-		data(sources, BYTE, nullstr(src));
-		data(lengths, DWORD, Integer.toString(src.length()));
-		asm( 
-			assign_call(shader, glCreateShader(type)),
-			call(glShaderSource(shader, 1, sources, lengths)),
+		final int BUFFER_SIZE = 256;
+		final Label buffer = data(label(GLOBAL, "glGetShaderInfoLog_buffer"), BUFFER_SIZE, BYTE);
+		final Label bufferlen = data(label(GLOBAL, "glGetShaderInfoLog_buffer_len"), DWORD);
+		asm(
+			assign_call(shader = label(GLOBAL, "glCreateShader__shader"), glCreateShader(type)),
+			call(glShaderSource(shader, 1, sourcesArray, lengths)),
 			call(glCompileShader(shader)),
-			assign_mov(DWORD, error, oper(0)), // reset error to zero
-			call(glGetShaderiv(shader, GL_COMPILE_STATUS, error)),
-			jmp_if(DWORD, oper(deref(error)), EQUAL, oper(0), handleError),
+			assign_mov(DWORD, success, oper(0)), // reset error to zero
+			call(glGetShaderiv(shader, GL_COMPILE_STATUS, success)),
+			jmp_if(DWORD, oper(deref(success)), NOT_EQUAL, bitField(GL_TRUE), handleError),
 			jmp(done),
 			
 			def_label(handleError),
-			assign_call(errorLen, LocalSize(error)),
-			call(WriteToPipe.stdout(error, errorLen)),
+//			call(glGetShaderiv(shader, GL_INFO_LOG_LENGTH, success)),
+			call(glGetShaderInfoLog(shader, BUFFER_SIZE, bufferlen, buffer)),
+			// TODO: not sure why i can't pass buffer to FormatStringA here
+			//       it works everywhere else. something strange about it.
+			Console.log("GL Shader Compiler Error:"),
+			// NOTE: errors are typically printed with a prefix like 0(3) 
+			//       which seems to mean line 3, char 0. though char 0 is often
+			//       not specific enough, the line number is probably all most ppl need.
+			//       i could be wrong about 0 indicating the character position.
+			assign_call(success, WriteToPipe.stdout_without_fail_check(buffer, bufferlen)),
 			exit(oper(1)),
 			def_label(done));
 		return shader;
@@ -106,11 +121,11 @@ public class Main
 		final Label dbgLastError = label(GLOBAL, "__debug_last_error");
 		final Label shutdown = label(GLOBAL, "Generic__shutdown");
 		final Label label_dont_clear = label(LOCAL, "dont_clear");
-		
+		final Label shader;
 		data(msgTrace, 8, QWORD);
 		data(shutdown, DWORD);
 		asm(
-		def_label(main),
+	def_label(main),
 			block("INIT"),
 
 			comment("verify the window is not open twice"),
@@ -149,11 +164,10 @@ public class Main
 				}})))),
 	
 			assign_call(window, CreateWindowExA(
-				// TODO: could probably require specific enums instead of general, for extra validating precision
-				bitField(WS_EX_WINDOWEDGE),
+				list(WS_EX_WINDOWEDGE),
 				addrOf(uuid),
 				addrOf(data(title, BYTE, nullstr("OpenGL Demo"))),
-				bitField(WS_OVERLAPPED, WS_CAPTION, WS_SYSMENU, 
+				list(WS_OVERLAPPED, WS_CAPTION, WS_SYSMENU, 
 					WS_THICKFRAME, WS_MINIMIZEBOX, WS_MAXIMIZEBOX,
 					WS_VISIBLE, WS_CLIPCHILDREN, WS_CLIPSIBLINGS),
 				CW_USEDEFAULT,
@@ -173,17 +187,16 @@ public class Main
 			assign_call(pixelFormat, ChoosePixelFormat(
 				deref(ctx2d),
 				addrOf(PixelFormat = istruct("PixelFormat", PIXELFORMATDESCRIPTOR, new HashMap<String, Operand>(){{
-					put("dwFlags", oper(PFD_DRAW_TO_WINDOW | PFD_SUPPORT_OPENGL | PFD_DOUBLEBUFFER)
-						.comment("= PFD_DRAW_TO_WINDOW | PFD_SUPPORT_OPENGL | PFD_DOUBLEBUFFER"));
-					put("iPixelType", oper(PFD_TYPE_RGBA).comment("= PFD_TYPE_RGBA"));
+					put("dwFlags", bitField(PFD_DRAW_TO_WINDOW, PFD_SUPPORT_OPENGL, PFD_DOUBLEBUFFER));
+					put("iPixelType", bitField(PFD_TYPE_RGBA));
 					// not sure i care to make this based on system capability
-					put("cColorBits", oper(24).comment("(24-bit color depth)"));
-					put("cAlphaBits", oper(0).comment("(no alpha buffer)")); 
-					put("cAccumBits", oper(0).comment("(no accumulation buffer)"));
-					put("cDepthBits", oper(32).comment("(32-bit z-buffer)"));
-					put("cStencilBits", oper(0).comment("(no stencil buffer)"));
-					put("cAuxBuffers", oper(0).comment("(no auxiliary buffer)"));
-					put("iLayerType", oper(PFD_MAIN_PLANE).comment("= PFD_MAIN_PLANE"));
+					put("cColorBits", oper(24).comment("color depth"));
+					put("cAlphaBits", oper(0).comment("no alpha buffer")); 
+					put("cAccumBits", oper(0).comment("no accumulation buffer"));
+					put("cDepthBits", oper(32).comment("z-buffer"));
+					put("cStencilBits", oper(0).comment("no stencil buffer"));
+					put("cAuxBuffers", oper(0).comment("no auxiliary buffer"));
+					put("iLayerType", bitField(PFD_MAIN_PLANE));
 				}})))),
 	
 			assign_call(success, SetPixelFormat(
@@ -200,10 +213,6 @@ public class Main
 				,"glGetError"
 				,"glGetString"
 				,"wglGetProcAddress"
-//				,"glCreateShader"
-//				,"glShaderSource"
-//				,"glCompileShader"
-//				,"glGetShaderiv"
 			),
 			
 			assign_call(ctx, wglCreateContext(deref(ctx2d))),
@@ -212,7 +221,20 @@ public class Main
 	
 			assign_call(glString, glGetString(oper(GL_VERSION).comment("GL_VERSION"))),
 			Console.log( "GL_VERSION: %1\n", glString),
-			
+
+			glimport(
+				"glCreateShader"
+				,"glShaderSource"
+				,"glCompileShader"
+				,"glGetShaderiv"
+				,"glGetShaderInfoLog"
+			)
+		);
+		
+		final Label shader1 = newShader(VERTEX_SHADER_SRC, GL_VERTEX_SHADER);
+		final Label shader2 = newShader(FRAGMENT_SHADER_SRC, GL_FRAGMENT_SHADER);
+		
+		asm(
 			call(glClearColor(0, 0, 1, 1)),
 	
 		def_label(Loop),
@@ -258,12 +280,16 @@ public class Main
 			call(TranslateMessage(addrOf(IncomingMessage))),
 			call(DispatchMessageA(addrOf(IncomingMessage))),
 
-			def_label(Render),
+		def_label(Render),
 			// TODO: if the app is shutting down, abort this loop here
 			jmp_if(DWORD, oper(deref(shutdown)), EQUAL, oper(true), Loop),
 			
 			call(glClear(GL_COLOR_BUFFER_BIT)),
 			assign_call(success, SwapBuffers(deref(ctx2d))),
+			
+//			shader = newShader(VERTEX_SHADER_SRC, GL_VERTEX_SHADER),
+			
+			
 	
 			jmp(Loop),
 	
@@ -299,7 +325,7 @@ public class Main
 			jmp_if(QWORD, oper(QWORD, D), EQUAL, bitField(WM_KEYDOWN), WndProc_return_zero),
 			jmp_if(QWORD, oper(QWORD, D), EQUAL, bitField(WM_KEYUP), WndProc_return_zero),
 			jmp_if(QWORD, oper(QWORD, D), EQUAL, bitField(WM_SIZE), WndProc_return_zero),
-			def_label(WM_Default),
+		def_label(WM_Default),
 			comment("default window procedure handles messages for us"),
 			assign_call(success, ignoreError(DefWindowProcA(
 				deref(hWnd),
@@ -317,7 +343,7 @@ public class Main
 			// there's not too much we could do if there were any here 
 			// anyway.
 			call(SetLastError(0)),
-			def_label(label_dont_clear),
+		def_label(label_dont_clear),
 			ret(width(QWORD, oper(deref(success)))),
 
 		def_label(WM_SysCommand),

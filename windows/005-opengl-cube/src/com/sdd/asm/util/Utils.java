@@ -32,4 +32,8 @@ public class Utils
 	{
 		return isEmpty(a) ? b : isEmpty(b) ? a : (a + delim + b);
 	}
+
+	public static <T> T[] list(T... ts) {
+		return ts;
+	}	
 }

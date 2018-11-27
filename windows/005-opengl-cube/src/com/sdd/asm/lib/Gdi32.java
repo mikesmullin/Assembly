@@ -18,12 +18,37 @@ import static com.sdd.asm.Macros.Size.*;
  */
 public class Gdi32
 {
-	
-	public static final int PFD_DRAW_TO_WINDOW = 0x00000004;
-	public static final int PFD_SUPPORT_OPENGL = 0x00000020;
-	public static final int PFD_DOUBLEBUFFER = 0x00000001;
-	public static final int PFD_TYPE_RGBA = 0;
-	public static final int PFD_MAIN_PLANE = 0;
+	public enum PixelFormatFlags implements BitField
+	{
+		PFD_DRAW_TO_WINDOW (0x00000004),
+		PFD_SUPPORT_OPENGL (0x00000020),
+		PFD_DOUBLEBUFFER (0x00000001);
+		
+		public final int value;
+		PixelFormatFlags(final int value) { this.value = value; }
+		public String getName() { return name(); }
+		public int getValue() { return value; }
+	}
+
+	public enum PixelFormatPixelType implements BitField
+	{
+		PFD_TYPE_RGBA (0);
+
+		public final int value;
+		PixelFormatPixelType(final int value) { this.value = value; }
+		public String getName() { return name(); }
+		public int getValue() { return value; }
+	}
+
+	public enum PixelFormatLayerType implements BitField
+	{
+		PFD_MAIN_PLANE (0);
+
+		public final int value;
+		PixelFormatLayerType(final int value) { this.value = value; }
+		public String getName() { return name(); }
+		public int getValue() { return value; }
+	}
 
 	public static Struct PIXELFORMATDESCRIPTOR = new Struct("PIXELFORMATDESCRIPTOR")
 		.put("nSize", WORD, placeholder("sizeof(struct)"))

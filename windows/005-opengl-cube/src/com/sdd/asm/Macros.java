@@ -688,16 +688,17 @@ public class Macros
 	 */
 	public static String __ms_fastcall_64(final Proc procOpts)
 	{
-		final StringBuilder out = new StringBuilder();
-		out.append("    ; MS __fastcall x64 ABI\n");
+		String out = join(
+		"    ; MS __fastcall x64 ABI");
+			
 		// allocate ms fastcall shadow space
 		int shadowSpace = Math.max(40, ( 
 				procOpts.args.size() + // number of args
 				1 // mystery padding; its what VC++ x64 does
 			) * 8 // bytes
 		);
-		out.append("    sub rsp, ").append(shadowSpace)
-			.append(" ; allocate shadow space\n");
+		out += join(
+			"    sub rsp, "+ shadowSpace +" ; allocate shadow space");
 		
 		for (int i=procOpts.args.size()-1; i>-1; i--)
 		{
@@ -714,8 +715,9 @@ public class Macros
 					_assert("more than 4 float args not supported right now");
 					return "";
 				}
-				out.append("    mov qword rax, ").append(arg.op).append("\n")
-					.append("    movq ").append(register).append(", rax ; ").append(pos).append(arg.op.comment).append("\n");
+				out += join(
+					"    mov qword rax, "+ arg.op,
+					"    movq "+ register +", rax ; "+ pos + arg.op.comment);
 			}
 			else // integer operands
 			{
@@ -728,19 +730,20 @@ public class Macros
 				else if (2 == i && QWORD == arg.size) register = "r8";
 				else if (3 == i && QWORD == arg.size) register = "r9";
 				else {
-					out.append("    mov ").append(arg.size.toString().toLowerCase())
-						.append(" [rsp + ").append(i * 8).append("], ")
-						.append(arg.op)
-						.append(" ; ").append(pos).append(arg.op.comment).append("\n");
+					out += join(
+						"    mov "+ arg.size.toString().toLowerCase() +
+							" [rsp + "+ (i * 8) +"], "+ arg.op +
+							" ; "+ pos + arg.op.comment);
 					continue;
 				}
-				out.append("    mov ").append(arg.size.toString().toLowerCase())
-					.append(" ").append(register).append(", ").append(arg.op)
-					.append(" ; ").append(pos).append(arg.op.comment).append("\n");
+				out += join(
+					"    mov "+ arg.size.toString().toLowerCase() +
+					" "+ register +", "+ arg.op +" ; "+ pos + arg.op.comment);
 			}
 		}
 		
-		out.append("call ").append(procOpts.proc).append("\n");
+		out += join(
+			"call "+ procOpts.proc);
 		
 		// handle return var, if provided
 		if (null != procOpts.ret) {
@@ -751,14 +754,16 @@ public class Macros
 				_assert("unsupported return type width");
 				return "";
 			}
-			out.append("    mov ").append(procOpts.ret.size.toString().toLowerCase()).append(" ")
-				.append(procOpts.ret.op).append(", ").append(register).append(" ; return ")
-				.append(procOpts.ret.op.comment).append("\n");
+			out += join(
+				"    mov "+ procOpts.ret.size.toString().toLowerCase() +" "+
+				procOpts.ret.op + ", " + register + " ; return "+ 
+				procOpts.ret.op.comment);
 		}
 	
 		// deallocate ms fastcall shadow space
-		out.append("    add rsp, ").append(shadowSpace).append(" ; deallocate shadow space\n");
-		return out.toString();
+		out += join(
+			"    add rsp, "+ shadowSpace +" ; deallocate shadow space");
+		return out;
 	}
 
 	private static final Label error_prologue =
@@ -806,20 +811,30 @@ public class Macros
 	{
 		return join(
 			"    call GetLastError__prologue_reset",
-			__ms_fastcall_64(proc),
+			__ms_fastcall_64(proc).trim(),
 			"    call GetLastError__epilogue_check");
 	}
 
 	private static final Label gl_error_epilogue =
-		label(GLOBAL, "GetLastError__epilogue_glGetError");
+		label(GLOBAL, "glGetError__epilogue_check");
+	public static final Label gl_error_lookup =
+		label(LOCAL, "glGetError__lookup");
 	private static final Label gl_handle_error =
-		label(LOCAL, "glError");
+		label(LOCAL, "glGetError__handle");
 	private static final Label gl_error_code =
 		label(GLOBAL, "glGetError__code");
 	static {
 		onready(()->{
 			blocks.get("PROCS").append(join(
 				def_label(gl_error_epilogue),
+				// last command must have returned 0x0 in RAX, indicating an error occurred
+				jmp_if(DWORD, oper(DWORD, A), EQUAL, oper(0), gl_error_lookup),
+				"ret\n",
+				
+				// TODO: Thus, glGetError should always be called in a loop, 
+				//  until it returns GL_NO_ERROR, if all error flags are to be reset.
+				
+				def_label(gl_error_lookup),
 				assign_call(gl_error_code, glGetError()),
 				jmp_if(DWORD, oper(DWORD, A), NOT_EQUAL, oper(0), gl_handle_error),
 				"ret\n",
@@ -836,7 +851,7 @@ public class Macros
 	public static String __ms_fastcall_64_w_glGetError(final Proc proc)
 	{
 		return __ms_fastcall_64(proc) +
-			"call "+ label(GLOBAL, "GetLastError__epilogue_glGetError") +"\n";
+			"    call "+ gl_error_epilogue +"\n";
 	}
 
 	private static final Label exit_code = label(GLOBAL, "ExitProcess__code");

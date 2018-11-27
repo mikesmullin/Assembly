@@ -172,10 +172,10 @@ public class User32
 	public static final int CW_USEDEFAULT    = 0x80000000;
 
 	public static Proc CreateWindowExA(
-		final Operand dwExStyle,
+		final WindowExtendedStyle[] dwExStyle,
 		final LabelReference lpClassName,
 		final LabelReference lpWindowName,
-		final Operand dwStyle,
+		final WindowStyle[] dwStyle,
 		final int x,
 		final int y,
 		final int nWidth,
@@ -187,11 +187,11 @@ public class User32
 	) {
 		return new Proc(addrOf(extern(label(Scope.GLOBAL,"CreateWindowExA", true))),
 			new ArrayList<SizedOp>(){{
-				add(width(QWORD, dwExStyle.comment("DWORD dwExStyle")));
+				add(width(QWORD, bitField(dwExStyle).comment("DWORD dwExStyle")));
 				// NOTICE: the name used there has to be the same as the one used for RegisterClass
 				add(width(QWORD, oper(lpClassName).comment("LPCSTR lpClassName")));
 				add(width(QWORD, oper(lpWindowName).comment("LPCSTR lpWindowName")));
-				add(width(QWORD, dwStyle.comment("DWORD dwStyle")));
+				add(width(QWORD, bitField(dwStyle).comment("DWORD dwStyle")));
 				add(width(DWORD, oper(x).comment("int X")));
 				add(width(DWORD, oper(y).comment("int Y")));
 				add(width(DWORD, oper(nWidth).comment("int nWidth")));
