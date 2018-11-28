@@ -111,9 +111,17 @@ GetProcAddress__glGetString: db "glGetString",0
 glGetString: dq 0
 GetProcAddress__wglGetProcAddress: db "wglGetProcAddress",0
 wglGetProcAddress: dq 0
+GetProcAddress__glEnable: db "glEnable",0
+glEnable: dq 0
+GetProcAddress__glDepthFunc: db "glDepthFunc",0
+glDepthFunc: dq 0
+GetProcAddress__glDrawElements: db "glDrawElements",0
+glDrawElements: dq 0
 wglCreateContext__ctx: dq 0
 glString: dq 0
-FormatString_2: db "GL_VERSION: %1",10,10,0
+FormatString_2: db "GL_VENDOR: %1",10,0
+FormatString_3: db "GL_RENDERER: %1",10,0
+FormatString_4: db "GL_VERSION: %1",10,0
 wglGetProcAddress__glCreateShader: db "glCreateShader",0
 glCreateShader: dq 0
 wglGetProcAddress__glShaderSource: db "glShaderSource",0
@@ -124,23 +132,60 @@ wglGetProcAddress__glGetShaderiv: db "glGetShaderiv",0
 glGetShaderiv: dq 0
 wglGetProcAddress__glGetShaderInfoLog: db "glGetShaderInfoLog",0
 glGetShaderInfoLog: dq 0
-glShaderSource__sources: db "attribute vec2 position;",10,"void main(void) {",10,"z  gl_Position = vec4(position, 0., 1.);",10,"}",0
+wglGetProcAddress__glCreateProgram: db "glCreateProgram",0
+glCreateProgram: dq 0
+wglGetProcAddress__glBindAttribLocation: db "glBindAttribLocation",0
+glBindAttribLocation: dq 0
+wglGetProcAddress__glAttachShader: db "glAttachShader",0
+glAttachShader: dq 0
+wglGetProcAddress__glLinkProgram: db "glLinkProgram",0
+glLinkProgram: dq 0
+wglGetProcAddress__glGetProgramiv: db "glGetProgramiv",0
+glGetProgramiv: dq 0
+wglGetProcAddress__glGetProgramInfoLog: db "glGetProgramInfoLog",0
+glGetProgramInfoLog: dq 0
+wglGetProcAddress__glGetAttribLocation: db "glGetAttribLocation",0
+glGetAttribLocation: dq 0
+wglGetProcAddress__glEnableVertexAttribArray: db "glEnableVertexAttribArray",0
+glEnableVertexAttribArray: dq 0
+wglGetProcAddress__glUseProgram: db "glUseProgram",0
+glUseProgram: dq 0
+wglGetProcAddress__glGenBuffers: db "glGenBuffers",0
+glGenBuffers: dq 0
+wglGetProcAddress__glBindBuffer: db "glBindBuffer",0
+glBindBuffer: dq 0
+wglGetProcAddress__glBufferData: db "glBufferData",0
+glBufferData: dq 0
+wglGetProcAddress__glVertexAttribPointer: db "glVertexAttribPointer",0
+glVertexAttribPointer: dq 0
+glShaderSource__sources: db "#version 400",10,"in vec2 position;",10,"void main() {",10,"  gl_Position = vec4(position, 0., 1.);",10,"}",10,0
 glShaderSource__sources_array: dq glShaderSource__sources
-glShaderSource__lengths: dd 85
+glShaderSource__lengths: dd 87
 glCompileShader__success: dd 0
 glGetShaderInfoLog_buffer: times 256 db 0
 glGetShaderInfoLog_buffer_len: dd 0
 glCreateShader__shader: dd 0
-FormatString_3: db "GL Shader Compiler Error:",10,0
-glShaderSource__sources_1: db "precision mediump float;",10,"void main(void) {",10,"  gl_FragColor = vec4(0.,0.,0., 1.);",10,"}",0
+FormatString_5: db "GL Shader Compiler Error:",10,0
+glShaderSource__sources_1: db "#version 400",10,"void main() {",10,"  gl_FragColor = vec4(1.,0.,0., 1.);",10,"}",10,0
 glShaderSource__sources_array_1: dq glShaderSource__sources_1
-glShaderSource__lengths_1: dd 81
+glShaderSource__lengths_1: dd 66
 glCompileShader__success_1: dd 0
 glGetShaderInfoLog_buffer_1: times 256 db 0
 glGetShaderInfoLog_buffer_len_1: dd 0
 glCreateShader__shader_1: dd 0
-FormatString_4: db "GL Shader Compiler Error:",10,0
-F0_0: dq 0x0
+FormatString_6: db "GL Shader Compiler Error:",10,0
+glGetProgramInfoLog_buffer: times 256 db 0
+glGetProgramInfoLog_buffer_len: dd 0
+glProgram__attribute: db "position",0
+glBuffers__triangleVerticesBuffer: dd 0
+glBuffers__triangleFacesBuffer: dd 0
+glBuffers__verticesFloat32Array: dd -0.9, -0.9, 0.9, -0.9, 0.9, 0.9
+glBuffers__facesUint16Array: dw 0, 1, 2
+glProgram__instance: dq 0
+FormatString_7: db "GL Program Linker Error:",10,0
+glProgram__attribute_idx: dd 0
+FormatString_8: db "Missing attribute: position",10,0
+F0_1: dq 0x3dcccccd
 F1_0: dq 0x3f800000
 
 ; struct
@@ -377,6 +422,36 @@ call GetProcAddress
     add rsp, 40 ; deallocate shadow space
     call GetLastError__epilogue_check
 
+    call GetLastError__prologue_reset
+; MS __fastcall x64 ABI
+    sub rsp, 40 ; allocate shadow space
+    mov dword edx, GetProcAddress__glEnable ; 2nd LPCSTR lpProcName
+    mov qword rcx, [LoadLibraryA__opengl32_hModule] ; 1st HMODULE hModule
+call GetProcAddress
+    mov qword [glEnable], rax ; return FARPROC
+    add rsp, 40 ; deallocate shadow space
+    call GetLastError__epilogue_check
+
+    call GetLastError__prologue_reset
+; MS __fastcall x64 ABI
+    sub rsp, 40 ; allocate shadow space
+    mov dword edx, GetProcAddress__glDepthFunc ; 2nd LPCSTR lpProcName
+    mov qword rcx, [LoadLibraryA__opengl32_hModule] ; 1st HMODULE hModule
+call GetProcAddress
+    mov qword [glDepthFunc], rax ; return FARPROC
+    add rsp, 40 ; deallocate shadow space
+    call GetLastError__epilogue_check
+
+    call GetLastError__prologue_reset
+; MS __fastcall x64 ABI
+    sub rsp, 40 ; allocate shadow space
+    mov dword edx, GetProcAddress__glDrawElements ; 2nd LPCSTR lpProcName
+    mov qword rcx, [LoadLibraryA__opengl32_hModule] ; 1st HMODULE hModule
+call GetProcAddress
+    mov qword [glDrawElements], rax ; return FARPROC
+    add rsp, 40 ; deallocate shadow space
+    call GetLastError__epilogue_check
+
 
     call GetLastError__prologue_reset
 ; MS __fastcall x64 ABI
@@ -400,7 +475,7 @@ call [wglMakeCurrent]
     call GetLastError__prologue_reset
 ; MS __fastcall x64 ABI
     sub rsp, 40 ; allocate shadow space
-    mov qword rcx, 0x1f02 ; 1st = 7938 GL_VERSION GLenum name
+    mov qword rcx, 0x1f00 ; 1st = 7936 GL_VENDOR GLenum name
 call [glGetString]
     mov qword [glString], rax ; return GLubyte* WINAPI
     add rsp, 40 ; deallocate shadow space
@@ -414,6 +489,74 @@ call [glGetString]
     mov dword r9d, 0 ; 4th = NULL DWORD dwLanguageId
     mov dword r8d, 0 ; 3rd = NULL DWORD dwMessageId
     mov dword edx, FormatString_2 ; 2nd LPCVOID lpSource
+    mov dword ecx, 0x2400 ; 1st = 9216 FORMAT_MESSAGE_ARGUMENT_ARRAY | FORMAT_MESSAGE_FROM_STRING DWORD dwFlags
+call FormatMessageA
+    mov dword [FormatMessage__length], eax ; return DWORD TCHARs written
+    add rsp, 64 ; deallocate shadow space
+
+    ; MS __fastcall x64 ABI
+    sub rsp, 48 ; allocate shadow space
+    mov dword [rsp + 32], 0 ; 5th = NULL LPOVERLAPPED lpOverlapped
+    mov dword r9d, WriteFile__bytesWritten ; 4th LPDWORD lpNumberOfBytesWritten
+    mov dword r8d, [FormatMessage__length] ; 3rd DWORD nNumberOfBytesToWrite
+    mov dword edx, FormatMessage__buffer ; 2nd LPCVOID lpBuffer
+    mov dword ecx, [Console__stdout_nStdHandle] ; 1st HANDLE hFile
+call WriteFile
+    mov dword [printf__success], eax ; return BOOL
+    add rsp, 48 ; deallocate shadow space
+
+
+    call GetLastError__prologue_reset
+; MS __fastcall x64 ABI
+    sub rsp, 40 ; allocate shadow space
+    mov qword rcx, 0x1f01 ; 1st = 7937 GL_RENDERER GLenum name
+call [glGetString]
+    mov qword [glString], rax ; return GLubyte* WINAPI
+    add rsp, 40 ; deallocate shadow space
+    call GetLastError__epilogue_check
+
+    ; MS __fastcall x64 ABI
+    sub rsp, 64 ; allocate shadow space
+    mov qword [rsp + 48], glString ; 7th va_list *Arguments
+    mov qword [rsp + 40], 0x100 ; 6th = 256 DWORD nSize
+    mov qword [rsp + 32], FormatMessage__buffer ; 5th LPSTR lpBuffer
+    mov dword r9d, 0 ; 4th = NULL DWORD dwLanguageId
+    mov dword r8d, 0 ; 3rd = NULL DWORD dwMessageId
+    mov dword edx, FormatString_3 ; 2nd LPCVOID lpSource
+    mov dword ecx, 0x2400 ; 1st = 9216 FORMAT_MESSAGE_ARGUMENT_ARRAY | FORMAT_MESSAGE_FROM_STRING DWORD dwFlags
+call FormatMessageA
+    mov dword [FormatMessage__length], eax ; return DWORD TCHARs written
+    add rsp, 64 ; deallocate shadow space
+
+    ; MS __fastcall x64 ABI
+    sub rsp, 48 ; allocate shadow space
+    mov dword [rsp + 32], 0 ; 5th = NULL LPOVERLAPPED lpOverlapped
+    mov dword r9d, WriteFile__bytesWritten ; 4th LPDWORD lpNumberOfBytesWritten
+    mov dword r8d, [FormatMessage__length] ; 3rd DWORD nNumberOfBytesToWrite
+    mov dword edx, FormatMessage__buffer ; 2nd LPCVOID lpBuffer
+    mov dword ecx, [Console__stdout_nStdHandle] ; 1st HANDLE hFile
+call WriteFile
+    mov dword [printf__success], eax ; return BOOL
+    add rsp, 48 ; deallocate shadow space
+
+
+    call GetLastError__prologue_reset
+; MS __fastcall x64 ABI
+    sub rsp, 40 ; allocate shadow space
+    mov qword rcx, 0x1f02 ; 1st = 7938 GL_VERSION GLenum name
+call [glGetString]
+    mov qword [glString], rax ; return GLubyte* WINAPI
+    add rsp, 40 ; deallocate shadow space
+    call GetLastError__epilogue_check
+
+    ; MS __fastcall x64 ABI
+    sub rsp, 64 ; allocate shadow space
+    mov qword [rsp + 48], glString ; 7th va_list *Arguments
+    mov qword [rsp + 40], 0x100 ; 6th = 256 DWORD nSize
+    mov qword [rsp + 32], FormatMessage__buffer ; 5th LPSTR lpBuffer
+    mov dword r9d, 0 ; 4th = NULL DWORD dwLanguageId
+    mov dword r8d, 0 ; 3rd = NULL DWORD dwMessageId
+    mov dword edx, FormatString_4 ; 2nd LPCVOID lpSource
     mov dword ecx, 0x2400 ; 1st = 9216 FORMAT_MESSAGE_ARGUMENT_ARRAY | FORMAT_MESSAGE_FROM_STRING DWORD dwFlags
 call FormatMessageA
     mov dword [FormatMessage__length], eax ; return DWORD TCHARs written
@@ -477,6 +620,123 @@ call [wglGetProcAddress]
     add rsp, 40 ; deallocate shadow space
     call GetLastError__epilogue_check
 
+    call GetLastError__prologue_reset
+; MS __fastcall x64 ABI
+    sub rsp, 40 ; allocate shadow space
+    mov qword rcx, wglGetProcAddress__glCreateProgram ; 1st LPCSTR Arg1
+call [wglGetProcAddress]
+    mov qword [glCreateProgram], rax ; return PROC
+    add rsp, 40 ; deallocate shadow space
+    call GetLastError__epilogue_check
+
+    call GetLastError__prologue_reset
+; MS __fastcall x64 ABI
+    sub rsp, 40 ; allocate shadow space
+    mov qword rcx, wglGetProcAddress__glBindAttribLocation ; 1st LPCSTR Arg1
+call [wglGetProcAddress]
+    mov qword [glBindAttribLocation], rax ; return PROC
+    add rsp, 40 ; deallocate shadow space
+    call GetLastError__epilogue_check
+
+    call GetLastError__prologue_reset
+; MS __fastcall x64 ABI
+    sub rsp, 40 ; allocate shadow space
+    mov qword rcx, wglGetProcAddress__glAttachShader ; 1st LPCSTR Arg1
+call [wglGetProcAddress]
+    mov qword [glAttachShader], rax ; return PROC
+    add rsp, 40 ; deallocate shadow space
+    call GetLastError__epilogue_check
+
+    call GetLastError__prologue_reset
+; MS __fastcall x64 ABI
+    sub rsp, 40 ; allocate shadow space
+    mov qword rcx, wglGetProcAddress__glLinkProgram ; 1st LPCSTR Arg1
+call [wglGetProcAddress]
+    mov qword [glLinkProgram], rax ; return PROC
+    add rsp, 40 ; deallocate shadow space
+    call GetLastError__epilogue_check
+
+    call GetLastError__prologue_reset
+; MS __fastcall x64 ABI
+    sub rsp, 40 ; allocate shadow space
+    mov qword rcx, wglGetProcAddress__glGetProgramiv ; 1st LPCSTR Arg1
+call [wglGetProcAddress]
+    mov qword [glGetProgramiv], rax ; return PROC
+    add rsp, 40 ; deallocate shadow space
+    call GetLastError__epilogue_check
+
+    call GetLastError__prologue_reset
+; MS __fastcall x64 ABI
+    sub rsp, 40 ; allocate shadow space
+    mov qword rcx, wglGetProcAddress__glGetProgramInfoLog ; 1st LPCSTR Arg1
+call [wglGetProcAddress]
+    mov qword [glGetProgramInfoLog], rax ; return PROC
+    add rsp, 40 ; deallocate shadow space
+    call GetLastError__epilogue_check
+
+    call GetLastError__prologue_reset
+; MS __fastcall x64 ABI
+    sub rsp, 40 ; allocate shadow space
+    mov qword rcx, wglGetProcAddress__glGetAttribLocation ; 1st LPCSTR Arg1
+call [wglGetProcAddress]
+    mov qword [glGetAttribLocation], rax ; return PROC
+    add rsp, 40 ; deallocate shadow space
+    call GetLastError__epilogue_check
+
+    call GetLastError__prologue_reset
+; MS __fastcall x64 ABI
+    sub rsp, 40 ; allocate shadow space
+    mov qword rcx, wglGetProcAddress__glEnableVertexAttribArray ; 1st LPCSTR Arg1
+call [wglGetProcAddress]
+    mov qword [glEnableVertexAttribArray], rax ; return PROC
+    add rsp, 40 ; deallocate shadow space
+    call GetLastError__epilogue_check
+
+    call GetLastError__prologue_reset
+; MS __fastcall x64 ABI
+    sub rsp, 40 ; allocate shadow space
+    mov qword rcx, wglGetProcAddress__glUseProgram ; 1st LPCSTR Arg1
+call [wglGetProcAddress]
+    mov qword [glUseProgram], rax ; return PROC
+    add rsp, 40 ; deallocate shadow space
+    call GetLastError__epilogue_check
+
+    call GetLastError__prologue_reset
+; MS __fastcall x64 ABI
+    sub rsp, 40 ; allocate shadow space
+    mov qword rcx, wglGetProcAddress__glGenBuffers ; 1st LPCSTR Arg1
+call [wglGetProcAddress]
+    mov qword [glGenBuffers], rax ; return PROC
+    add rsp, 40 ; deallocate shadow space
+    call GetLastError__epilogue_check
+
+    call GetLastError__prologue_reset
+; MS __fastcall x64 ABI
+    sub rsp, 40 ; allocate shadow space
+    mov qword rcx, wglGetProcAddress__glBindBuffer ; 1st LPCSTR Arg1
+call [wglGetProcAddress]
+    mov qword [glBindBuffer], rax ; return PROC
+    add rsp, 40 ; deallocate shadow space
+    call GetLastError__epilogue_check
+
+    call GetLastError__prologue_reset
+; MS __fastcall x64 ABI
+    sub rsp, 40 ; allocate shadow space
+    mov qword rcx, wglGetProcAddress__glBufferData ; 1st LPCSTR Arg1
+call [wglGetProcAddress]
+    mov qword [glBufferData], rax ; return PROC
+    add rsp, 40 ; deallocate shadow space
+    call GetLastError__epilogue_check
+
+    call GetLastError__prologue_reset
+; MS __fastcall x64 ABI
+    sub rsp, 40 ; allocate shadow space
+    mov qword rcx, wglGetProcAddress__glVertexAttribPointer ; 1st LPCSTR Arg1
+call [wglGetProcAddress]
+    mov qword [glVertexAttribPointer], rax ; return PROC
+    add rsp, 40 ; deallocate shadow space
+    call GetLastError__epilogue_check
+
 
     ; MS __fastcall x64 ABI
     sub rsp, 40 ; allocate shadow space
@@ -532,7 +792,7 @@ call [glGetShaderInfoLog]
     mov qword [rsp + 32], FormatMessage__buffer ; 5th LPSTR lpBuffer
     mov dword r9d, 0 ; 4th = NULL DWORD dwLanguageId
     mov dword r8d, 0 ; 3rd = NULL DWORD dwMessageId
-    mov dword edx, FormatString_3 ; 2nd LPCVOID lpSource
+    mov dword edx, FormatString_5 ; 2nd LPCVOID lpSource
     mov dword ecx, 0x2400 ; 1st = 9216 FORMAT_MESSAGE_ARGUMENT_ARRAY | FORMAT_MESSAGE_FROM_STRING DWORD dwFlags
 call FormatMessageA
     mov dword [FormatMessage__length], eax ; return DWORD TCHARs written
@@ -620,7 +880,7 @@ call [glGetShaderInfoLog]
     mov qword [rsp + 32], FormatMessage__buffer ; 5th LPSTR lpBuffer
     mov dword r9d, 0 ; 4th = NULL DWORD dwLanguageId
     mov dword r8d, 0 ; 3rd = NULL DWORD dwMessageId
-    mov dword edx, FormatString_4 ; 2nd LPCVOID lpSource
+    mov dword edx, FormatString_6 ; 2nd LPCVOID lpSource
     mov dword ecx, 0x2400 ; 1st = 9216 FORMAT_MESSAGE_ARGUMENT_ARRAY | FORMAT_MESSAGE_FROM_STRING DWORD dwFlags
 call FormatMessageA
     mov dword [FormatMessage__length], eax ; return DWORD TCHARs written
@@ -656,13 +916,219 @@ call Exit
 ..@newShader__done_1:
     ; MS __fastcall x64 ABI
     sub rsp, 40 ; allocate shadow space
+call [glCreateProgram]
+    mov qword [glProgram__instance], rax ; return GLuint
+    add rsp, 40 ; deallocate shadow space
+    call glGetError__epilogue_check
+
+    ; MS __fastcall x64 ABI
+    sub rsp, 40 ; allocate shadow space
+    mov qword r8, glProgram__attribute ; 3rd const GLchar *name
+    mov dword edx, 0 ; 2nd GLuint index
+    mov dword ecx, [glProgram__instance] ; 1st GLuint program
+call [glBindAttribLocation]
+    add rsp, 40 ; deallocate shadow space
+
+    ; MS __fastcall x64 ABI
+    sub rsp, 40 ; allocate shadow space
+    mov dword edx, [glCreateShader__shader] ; 2nd GLuint shader
+    mov dword ecx, [glProgram__instance] ; 1st GLuint program
+call [glAttachShader]
+    add rsp, 40 ; deallocate shadow space
+
+    ; MS __fastcall x64 ABI
+    sub rsp, 40 ; allocate shadow space
+    mov dword edx, [glCreateShader__shader_1] ; 2nd GLuint shader
+    mov dword ecx, [glProgram__instance] ; 1st GLuint program
+call [glAttachShader]
+    add rsp, 40 ; deallocate shadow space
+
+    ; MS __fastcall x64 ABI
+    sub rsp, 40 ; allocate shadow space
+    mov dword ecx, [glProgram__instance] ; 1st GLuint program
+call [glLinkProgram]
+    add rsp, 40 ; deallocate shadow space
+
+    ; MS __fastcall x64 ABI
+    sub rsp, 40 ; allocate shadow space
+    mov qword r8, Generic__success ; 3rd GLint *params
+    mov dword edx, 0x8b82 ; 2nd = 35714 GL_LINK_STATUS GLenum pname
+    mov dword ecx, [glProgram__instance] ; 1st GLuint program
+call [glGetProgramiv]
+    add rsp, 40 ; deallocate shadow space
+
+cmp dword [Generic__success], 0x1 ; = 1 GL_TRUE
+jne near glGetProgramiv__handleError
+jmp near glGetProgramiv__done
+glGetProgramiv__handleError:
+    ; MS __fastcall x64 ABI
+    sub rsp, 40 ; allocate shadow space
+    mov qword r9, glGetProgramInfoLog_buffer ; 4th GLchar *infoLog
+    mov qword r8, glGetProgramInfoLog_buffer_len ; 3rd GLsizei *length
+    mov dword edx, 0x100 ; 2nd = 256 GLsizei maxLength
+    mov dword ecx, [glProgram__instance] ; 1st GLuint program
+call [glGetProgramInfoLog]
+    add rsp, 40 ; deallocate shadow space
+
+    ; MS __fastcall x64 ABI
+    sub rsp, 64 ; allocate shadow space
+    mov qword [rsp + 48], 0 ; 7th = NULL va_list *Arguments
+    mov qword [rsp + 40], 0x100 ; 6th = 256 DWORD nSize
+    mov qword [rsp + 32], FormatMessage__buffer ; 5th LPSTR lpBuffer
+    mov dword r9d, 0 ; 4th = NULL DWORD dwLanguageId
+    mov dword r8d, 0 ; 3rd = NULL DWORD dwMessageId
+    mov dword edx, FormatString_7 ; 2nd LPCVOID lpSource
+    mov dword ecx, 0x2400 ; 1st = 9216 FORMAT_MESSAGE_ARGUMENT_ARRAY | FORMAT_MESSAGE_FROM_STRING DWORD dwFlags
+call FormatMessageA
+    mov dword [FormatMessage__length], eax ; return DWORD TCHARs written
+    add rsp, 64 ; deallocate shadow space
+
+    ; MS __fastcall x64 ABI
+    sub rsp, 48 ; allocate shadow space
+    mov dword [rsp + 32], 0 ; 5th = NULL LPOVERLAPPED lpOverlapped
+    mov dword r9d, WriteFile__bytesWritten ; 4th LPDWORD lpNumberOfBytesWritten
+    mov dword r8d, [FormatMessage__length] ; 3rd DWORD nNumberOfBytesToWrite
+    mov dword edx, FormatMessage__buffer ; 2nd LPCVOID lpBuffer
+    mov dword ecx, [Console__stdout_nStdHandle] ; 1st HANDLE hFile
+call WriteFile
+    mov dword [printf__success], eax ; return BOOL
+    add rsp, 48 ; deallocate shadow space
+
+
+    ; MS __fastcall x64 ABI
+    sub rsp, 48 ; allocate shadow space
+    mov dword [rsp + 32], 0 ; 5th = NULL LPOVERLAPPED lpOverlapped
+    mov dword r9d, WriteFile__bytesWritten ; 4th LPDWORD lpNumberOfBytesWritten
+    mov dword r8d, [glGetProgramInfoLog_buffer_len] ; 3rd DWORD nNumberOfBytesToWrite
+    mov dword edx, glGetProgramInfoLog_buffer ; 2nd LPCVOID lpBuffer
+    mov dword ecx, [Console__stdout_nStdHandle] ; 1st HANDLE hFile
+call WriteFile
+    mov dword [Generic__success], eax ; return BOOL
+    add rsp, 48 ; deallocate shadow space
+
+mov dword [ExitProcess__code], 0x1 ; = 1
+call Exit
+
+
+glGetProgramiv__done:
+    ; MS __fastcall x64 ABI
+    sub rsp, 40 ; allocate shadow space
+    mov qword rdx, glProgram__attribute ; 2nd const GLchar *name
+    mov dword ecx, [glProgram__instance] ; 1st GLuint program
+call [glGetAttribLocation]
+    mov dword [glProgram__attribute_idx], eax ; return GLuint
+    add rsp, 40 ; deallocate shadow space
+
+cmp dword [glProgram__attribute_idx], 0xffffffff ; = -1
+jne near ..@glProgram__label2
+    ; MS __fastcall x64 ABI
+    sub rsp, 64 ; allocate shadow space
+    mov qword [rsp + 48], 0 ; 7th = NULL va_list *Arguments
+    mov qword [rsp + 40], 0x100 ; 6th = 256 DWORD nSize
+    mov qword [rsp + 32], FormatMessage__buffer ; 5th LPSTR lpBuffer
+    mov dword r9d, 0 ; 4th = NULL DWORD dwLanguageId
+    mov dword r8d, 0 ; 3rd = NULL DWORD dwMessageId
+    mov dword edx, FormatString_8 ; 2nd LPCVOID lpSource
+    mov dword ecx, 0x2400 ; 1st = 9216 FORMAT_MESSAGE_ARGUMENT_ARRAY | FORMAT_MESSAGE_FROM_STRING DWORD dwFlags
+call FormatMessageA
+    mov dword [FormatMessage__length], eax ; return DWORD TCHARs written
+    add rsp, 64 ; deallocate shadow space
+
+    ; MS __fastcall x64 ABI
+    sub rsp, 48 ; allocate shadow space
+    mov dword [rsp + 32], 0 ; 5th = NULL LPOVERLAPPED lpOverlapped
+    mov dword r9d, WriteFile__bytesWritten ; 4th LPDWORD lpNumberOfBytesWritten
+    mov dword r8d, [FormatMessage__length] ; 3rd DWORD nNumberOfBytesToWrite
+    mov dword edx, FormatMessage__buffer ; 2nd LPCVOID lpBuffer
+    mov dword ecx, [Console__stdout_nStdHandle] ; 1st HANDLE hFile
+call WriteFile
+    mov dword [printf__success], eax ; return BOOL
+    add rsp, 48 ; deallocate shadow space
+
+
+mov dword [ExitProcess__code], 0x1 ; = 1
+call Exit
+
+
+..@glProgram__label2:
+    ; MS __fastcall x64 ABI
+    sub rsp, 40 ; allocate shadow space
+    mov dword ecx, [glProgram__attribute_idx] ; 1st GLuint index
+call [glEnableVertexAttribArray]
+    add rsp, 40 ; deallocate shadow space
+
+    ; MS __fastcall x64 ABI
+    sub rsp, 40 ; allocate shadow space
+    mov dword ecx, [glProgram__instance] ; 1st GLuint program
+call [glUseProgram]
+    add rsp, 40 ; deallocate shadow space
+
+    ; MS __fastcall x64 ABI
+    sub rsp, 40 ; allocate shadow space
+    mov qword rdx, glBuffers__triangleVerticesBuffer ; 2nd GLuint * buffers
+    mov dword ecx, 0x1 ; 1st = 1 GLsizei n
+call [glGenBuffers]
+    add rsp, 40 ; deallocate shadow space
+
+    ; MS __fastcall x64 ABI
+    sub rsp, 40 ; allocate shadow space
+    mov qword rdx, glBuffers__triangleVerticesBuffer ; 2nd GLuint buffer
+    mov dword ecx, 0x8892 ; 1st = 34962 GL_ARRAY_BUFFER GLenum target
+call [glBindBuffer]
+    add rsp, 40 ; deallocate shadow space
+
+    ; MS __fastcall x64 ABI
+    sub rsp, 40 ; allocate shadow space
+    mov dword r9d, 0x88e4 ; 4th = 35044 GL_STATIC_DRAW GLenum usage
+    mov qword r8, glBuffers__verticesFloat32Array ; 3rd const GLvoid * data
+    mov qword rdx, 0x18 ; 2nd = 24 GLsizeiptr size
+    mov dword ecx, 0x8892 ; 1st = 34962 GL_ARRAY_BUFFER GLenum target
+call [glBufferData]
+    add rsp, 40 ; deallocate shadow space
+
+    ; MS __fastcall x64 ABI
+    sub rsp, 40 ; allocate shadow space
+    mov qword rdx, glBuffers__triangleFacesBuffer ; 2nd GLuint * buffers
+    mov dword ecx, 0x1 ; 1st = 1 GLsizei n
+call [glGenBuffers]
+    add rsp, 40 ; deallocate shadow space
+
+    ; MS __fastcall x64 ABI
+    sub rsp, 40 ; allocate shadow space
+    mov qword rdx, glBuffers__triangleFacesBuffer ; 2nd GLuint buffer
+    mov dword ecx, 0x8893 ; 1st = 34963 GL_ELEMENT_ARRAY_BUFFER GLenum target
+call [glBindBuffer]
+    add rsp, 40 ; deallocate shadow space
+
+    ; MS __fastcall x64 ABI
+    sub rsp, 40 ; allocate shadow space
+    mov dword r9d, 0x88e4 ; 4th = 35044 GL_STATIC_DRAW GLenum usage
+    mov qword r8, glBuffers__facesUint16Array ; 3rd const GLvoid * data
+    mov qword rdx, 0x6 ; 2nd = 6 GLsizeiptr size
+    mov dword ecx, 0x8893 ; 1st = 34963 GL_ELEMENT_ARRAY_BUFFER GLenum target
+call [glBufferData]
+    add rsp, 40 ; deallocate shadow space
+
+    ; MS __fastcall x64 ABI
+    sub rsp, 56 ; allocate shadow space
+    mov dword [rsp + 40], 0 ; 6th const GLvoid * pointer
+    mov dword [rsp + 32], 0x8 ; 5th = 8 GLsizei stride
+    mov dword r9d, 0 ; 4th GL_FALSE GLboolean normalized
+    mov qword r8, 0x1406 ; 3rd = 5126 GL_FLOAT GLenum type
+    mov qword rdx, 0x2 ; 2nd = 2 GLint size
+    mov dword ecx, [glProgram__attribute_idx] ; 1st GLuint index
+call [glVertexAttribPointer]
+    add rsp, 56 ; deallocate shadow space
+
+    ; MS __fastcall x64 ABI
+    sub rsp, 40 ; allocate shadow space
     mov qword rax, [F1_0]
     movq xmm3, rax ; 4th GLclampf alpha
-    mov qword rax, [F1_0]
+    mov qword rax, [F0_1]
     movq xmm2, rax ; 3rd GLclampf blue
-    mov qword rax, [F0_0]
+    mov qword rax, [F0_1]
     movq xmm1, rax ; 2nd GLclampf green
-    mov qword rax, [F0_0]
+    mov qword rax, [F0_1]
     movq xmm0, rax ; 1st GLclampf red
 call [glClearColor]
     add rsp, 40 ; deallocate shadow space
@@ -712,8 +1178,17 @@ cmp dword [Generic__shutdown], 1 ; = TRUE
 je near Loop
     ; MS __fastcall x64 ABI
     sub rsp, 40 ; allocate shadow space
-    mov dword ecx, 0x4000 ; 1st = 16384 GLbitfield mask
+    mov dword ecx, 0x4000 ; 1st = 16384 GL_COLOR_BUFFER_BIT GLbitfield mask
 call [glClear]
+    add rsp, 40 ; deallocate shadow space
+
+    ; MS __fastcall x64 ABI
+    sub rsp, 40 ; allocate shadow space
+    mov dword r9d, 0 ; 4th const GLvoid * indices
+    mov qword r8, 0x1403 ; 3rd = 5123 GL_UNSIGNED_SHORT GLenum type
+    mov qword rdx, 0x3 ; 2nd = 3 GLsizei count
+    mov dword ecx, 0x4 ; 1st = 4 GL_TRIANGLES GLenum mode
+call [glDrawElements]
     add rsp, 40 ; deallocate shadow space
 
     call GetLastError__prologue_reset

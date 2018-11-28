@@ -815,6 +815,12 @@ public class Macros
 			"    call GetLastError__epilogue_check");
 	}
 
+	// TODO: patterns to glError checking:
+	//       - always check at end of call, in a loop until it returns 0
+	//       - only check if nonzero return value
+	//       - only check if nonzero mutated input param
+	//       - must run a special error lookup fn like GetShaderiv or GetProgramiv to find error
+	//       should make a single function with overloads that can handle all these scenarios
 	private static final Label gl_error_epilogue =
 		label(GLOBAL, "glGetError__epilogue_check");
 	public static final Label gl_error_lookup =
@@ -1320,10 +1326,18 @@ public class Macros
 	 * and easy reuse, since MMX/SSE instructions typically don't accept immediate
 	 * operands.
 	 */
-	public static Label staticFloatToMemory(final float f)
+	private static int floatArrayCount = 0;
+	public static Label staticFloatToMemory(final float... floats)
 	{
-		final Label label = label(GLOBAL, ("F"+ f).replace(".","_"), true);
-		data(label, QWORD, "0x"+Integer.toHexString(Float.floatToIntBits(f)));
+		String value = "";
+		for (final float f : floats)
+		{
+			if (!"".equals(value)) value += ",";
+			value += "0x"+Integer.toHexString(Float.floatToIntBits(f));
+		}
+		final String name = 1 == floats.length ? ""+floats[0] : "Array"+ (floatArrayCount++);
+		final Label label = label(GLOBAL, ("F"+ name).replace(".","_"), true);
+		data(label, QWORD, value);
 		return label;
 	}
 

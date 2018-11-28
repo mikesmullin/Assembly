@@ -22,6 +22,15 @@ import static com.sdd.asm.lib.Opengl32.*;
 import static com.sdd.asm.lib.Opengl32.GlGetShaderIvPName.*;
 import static com.sdd.asm.lib.Opengl32.GlShaderType.*;
 import static com.sdd.asm.lib.Opengl32.GlType.*;
+import static com.sdd.asm.lib.Opengl32.GlGetProgramIvPName.*;
+import static com.sdd.asm.lib.Opengl32.GlTarget.*;
+import static com.sdd.asm.lib.Opengl32.GlUsage.*;
+import static com.sdd.asm.lib.Opengl32.GlLength.*;
+import static com.sdd.asm.lib.Opengl32.GlDrawMode.*;
+import static com.sdd.asm.lib.Opengl32.GlMask.*;
+import static com.sdd.asm.lib.Opengl32.GlCapability.*;
+import static com.sdd.asm.lib.Opengl32.GlCompare.*;
+import static com.sdd.asm.lib.Opengl32.GlString.*;
 
 public class Main
 {
@@ -31,17 +40,18 @@ public class Main
 		writeToDisk();
 	}
 	
-	private static String VERTEX_SHADER_SRC =
-		"attribute vec2 position;\n" + // the position of the point
-		"void main(void) {\n" + // pre-built function
-		"  gl_Position = vec4(position, 0., 1.);\n" + // 0. is the z, and 1 is w
-		"}";
+	private static String VERTEX_SHADER_SRC = join(
+		"#version 400"
+		,"in vec2 position;" // the position of the point
+		,"void main() {" // pre-built function
+		,"  gl_Position = vec4(position, 0., 1.);" // 0. is the z, and 1 is w
+		,"}");
 	
-	private static String FRAGMENT_SHADER_SRC =
-		"precision mediump float;\n" +
-		"void main(void) {\n" +
-		"  gl_FragColor = vec4(0.,0.,0., 1.);\n" + // black color
-		"}";
+	private static String FRAGMENT_SHADER_SRC = join(
+		"#version 400"
+		,"void main() {"
+		,"  gl_FragColor = vec4(1.,0.,0., 1.);"
+		,"}");
 	
 	private static Label newShader(
 		final String src,
@@ -101,7 +111,7 @@ public class Main
 		final Label ctx2d = label(GLOBAL, "GetDC__hDC");
 		final Label pixelFormat = label(GLOBAL, "ChoosePixelFormat__format");
 		final Label success = label(GLOBAL, "Generic__success");
-		data(success, QWORD); // make room for largest possibility
+		data(success, QWORD); // shared/reused; make room for largest case
 		final Label ctx = label(GLOBAL, "wglCreateContext__ctx");
 		final Label Loop = label(GLOBAL, "Loop");
 		final Label Render = label(LOCAL, "Render");
@@ -118,14 +128,12 @@ public class Main
 		final Label WM_Default = label(LOCAL, "default");
 		final Label glString = label(GLOBAL, "glString");
 		final Label msgTrace = label(GLOBAL, "__message_trace");
-		final Label dbgLastError = label(GLOBAL, "__debug_last_error");
 		final Label shutdown = label(GLOBAL, "Generic__shutdown");
 		final Label label_dont_clear = label(LOCAL, "dont_clear");
-		final Label shader;
 		data(msgTrace, 8, QWORD);
 		data(shutdown, DWORD);
 		asm(
-	def_label(main),
+		def_label(main),
 			block("INIT"),
 
 			comment("verify the window is not open twice"),
@@ -213,14 +221,24 @@ public class Main
 				,"glGetError"
 				,"glGetString"
 				,"wglGetProcAddress"
+				,"glEnable"
+				,"glDepthFunc"
+				,"glDrawElements"
+//				,"glViewport"
+//				,"glFlush"
 			),
 			
 			assign_call(ctx, wglCreateContext(deref(ctx2d))),
 	
 			assign_call(success, wglMakeCurrent(deref(ctx2d), deref(ctx))),
-	
-			assign_call(glString, glGetString(oper(GL_VERSION).comment("GL_VERSION"))),
-			Console.log( "GL_VERSION: %1\n", glString),
+
+			assign_call(glString, glGetString(GL_VENDOR)),
+			Console.log( "GL_VENDOR: %1", glString),
+			assign_call(glString, glGetString(GL_RENDERER)),
+			Console.log( "GL_RENDERER: %1", glString),
+			assign_call(glString, glGetString(GL_VERSION)),
+			Console.log( "GL_VERSION: %1", glString),
+			// TODO: could abort if api version compatibility is too low
 
 			glimport(
 				"glCreateShader"
@@ -228,14 +246,88 @@ public class Main
 				,"glCompileShader"
 				,"glGetShaderiv"
 				,"glGetShaderInfoLog"
+				,"glCreateProgram"
+				,"glBindAttribLocation"
+				,"glAttachShader"
+				,"glLinkProgram"
+				,"glGetProgramiv"
+				,"glGetProgramInfoLog"
+				,"glGetAttribLocation"
+				,"glEnableVertexAttribArray"
+				,"glUseProgram"
+				,"glGenBuffers"
+				,"glBindBuffer"
+				,"glBufferData"
+				,"glVertexAttribPointer"
 			)
 		);
 		
-		final Label shader1 = newShader(VERTEX_SHADER_SRC, GL_VERTEX_SHADER);
-		final Label shader2 = newShader(FRAGMENT_SHADER_SRC, GL_FRAGMENT_SHADER);
-		
+		final Label vshader = newShader(VERTEX_SHADER_SRC, GL_VERTEX_SHADER);
+		final Label fshader = newShader(FRAGMENT_SHADER_SRC, GL_FRAGMENT_SHADER);
+		final Label handleProgramError = label(GLOBAL, "glGetProgramiv__handleError");
+		final Label glProgramDone = label(GLOBAL, "glGetProgramiv__done");
+		final int glProgram_BUFFER_SIZE = 256;
+		final Label pbuffer = data(label(GLOBAL, "glGetProgramInfoLog_buffer"), glProgram_BUFFER_SIZE, BYTE);
+		final Label pbufferlen = data(label(GLOBAL, "glGetProgramInfoLog_buffer_len"), DWORD);
+		final Label program = label(GLOBAL, "glProgram__instance");
+		final Label positionAttr = data(label(GLOBAL, "glProgram__attribute"), BYTE, nullstr("position"));
+		final Label positionIdx = label(GLOBAL, "glProgram__attribute_idx");
+		// TODO: for both strings and labels just make an anon label generator for convenience
+		final Label plabel2 = label(LOCAL, "glProgram__label2");
+		final Label triangleVerticesBuffer = data(label(GLOBAL, "glBuffers__triangleVerticesBuffer"), DWORD);
+		final Label triangleFacesBuffer = data(label(GLOBAL, "glBuffers__triangleFacesBuffer"), DWORD);
+		final Label verticesFloat32Array = data(label(GLOBAL, "glBuffers__verticesFloat32Array"), DWORD, 
+			"-0.9, -0.9"+
+			", 0.9, -0.9"+
+			", 0.9, 0.9");
+		final Label facesUint16Array = data(label(GLOBAL, "glBuffers__facesUint16Array"), WORD, 
+			"0, 1, 2");
 		asm(
-			call(glClearColor(0, 0, 1, 1)),
+			assign_call(program, glCreateProgram()),
+			call(glBindAttribLocation(program, 0, positionAttr)),
+			call(glAttachShader(program, vshader)),
+			call(glAttachShader(program, fshader)),
+			call(glLinkProgram(program)),
+			
+			call(glGetProgramiv(program, GL_LINK_STATUS, success)),
+			jmp_if(DWORD, oper(deref(success)), NOT_EQUAL, bitField(GL_TRUE), handleProgramError),
+			jmp(glProgramDone),
+
+			def_label(handleProgramError),
+			call(glGetProgramInfoLog(program, glProgram_BUFFER_SIZE, pbufferlen, pbuffer)),
+			Console.log("GL Program Linker Error:"),
+			assign_call(success, WriteToPipe.stdout_without_fail_check(pbuffer, pbufferlen)),
+			exit(oper(1)),
+			def_label(glProgramDone),
+			
+			assign_call(positionIdx, glGetAttribLocation(program, positionAttr)),
+			jmp_if(DWORD, oper(deref(positionIdx)), NOT_EQUAL, oper(-1), plabel2),
+			Console.log("Missing attribute: position"),
+			exit(oper(1)),
+			
+			def_label(plabel2),
+			call(glEnableVertexAttribArray(positionIdx)),
+			call(glUseProgram(program)),
+			
+			// vertices
+			call(glGenBuffers(1, triangleVerticesBuffer)),
+			call(glBindBuffer(GL_ARRAY_BUFFER, triangleVerticesBuffer)),
+			call(glBufferData(GL_ARRAY_BUFFER, 6*(32/8), verticesFloat32Array, GL_STATIC_DRAW)),
+			
+			// faces
+			call(glGenBuffers(1, triangleFacesBuffer)),
+			call(glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, triangleFacesBuffer)),
+			call(glBufferData(GL_ELEMENT_ARRAY_BUFFER, 3*(16/8), facesUint16Array, GL_STATIC_DRAW)),
+			
+			// describe how to walk the data type of the position vertex attribute 
+			// as found in the triangle vertices buffer
+			call(glVertexAttribPointer(positionIdx, 2, GL_FLOAT, 
+				GL_FALSE, 2*(32/8), 0)),
+			
+//			call(glEnable(GL_DEPTH_TEST)), // only draw nearest pixels
+//			call(glDepthFunc(GL_LESS)),
+		
+			call(glClearColor(0.1f, 0.1f, 0.1f, 1.0f)),
 	
 		def_label(Loop),
 			assign_call(success, PeekMessageA(
@@ -248,7 +340,7 @@ public class Main
 	
 			comment("if zero messages, skip handling messages"),
 			jmp_if(DWORD, oper(deref(success)), EQUAL, oper(0), Render),
-	
+			
 			jmp_if(DWORD, oper(deref(IncomingMessage.get("message"))), NOT_EQUAL, bitField(WM_QUIT), ProcessMessage),
 	
 			exit(oper(0)),
@@ -281,16 +373,15 @@ public class Main
 			call(DispatchMessageA(addrOf(IncomingMessage))),
 
 		def_label(Render),
-			// TODO: if the app is shutting down, abort this loop here
+			// when the app is shutting down, abort this loop
 			jmp_if(DWORD, oper(deref(shutdown)), EQUAL, oper(true), Loop),
 			
-			call(glClear(GL_COLOR_BUFFER_BIT)),
+			call(glClear(list(GL_COLOR_BUFFER_BIT/*, GL_DEPTH_BUFFER_BIT*/))),
+
+			call(glDrawElements(GL_TRIANGLES, 3, GL_UNSIGNED_SHORT, 0)),
+			
 			assign_call(success, SwapBuffers(deref(ctx2d))),
 			
-//			shader = newShader(VERTEX_SHADER_SRC, GL_VERTEX_SHADER),
-			
-			
-	
 			jmp(Loop),
 	
 		def_label(WndProc),
