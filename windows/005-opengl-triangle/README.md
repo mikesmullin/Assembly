@@ -4,8 +4,9 @@ Instead of defining MASM or NASM macros, I utilized the strong-typing of Java an
 IDE support of IntelliJ to output my assembly code to NASM for machine encoding,
 and then to GCC for linking in Windows PE executable format.
 
-The release binary is ~5Kb and has no dependencies other than `KERNEL32.DLL`,
-`USER32.DLL`, `GDI32.DLL` (statically linked; the basic libs required by all Windows apps)
+The release binary is **~10Kb** (with alignment padding)
+and has no dependencies other than `KERNEL32.DLL`, `USER32.DLL`, `GDI32.DLL`
+(statically linked; the basic libs required by all Windows apps)
 and `OPENGL32.DLL` (ships with Windows, and dynamically linked at runtime).
 
 - No GLU, GLEW, GLFW, etc. frameworks.

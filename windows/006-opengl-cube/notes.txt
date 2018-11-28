@@ -1,0 +1,41 @@
+- try to get nasm to (in windows pe 64-bit executable):
+	- render a spinning gl cube
+	
+how to define the gl perspective (without glu)
+  yes glu is old and an alternative should be sought
+	  https://www.khronos.org/opengl/wiki/GluPerspective_code
+	it appears relatively simple to define the perspective matrix yourself, if you know the math
+	and fortunately for me, i already spent the time to do just that in the past
+		https://codepen.io/mikesmullin/pen/zNxoBL?editors=0010
+	this will enable me to avoid using the GLU dependency
+
+TODO: output to log file in relative path instead of showing console window (and showing a console behind the normal window)
+
+TODO: use the stack for all variables? like in macros build a stack frame reference
+	so that important offsets are remembered and reusable with rsp offsets whether
+	or not the code JMP or CALL several procs down the line
+	but it may run into problems cuz it'd have to work inside a remote call to 
+	same thread like WndProc
+	maybe the one reserved .data is a base pointer
+	i could probably figure out the rest from there statically at compile time
+	but that would make all calls even register calls require two memory lookups
+	which would be slower
+	better think about this more
+
+TODO: should make my own minimalist linker that reduces/reuses empty/unused space (97B)
+
+; optimize
+- glClearDepth
+- glHint
+; GetSystemMetrics ; ie. screen dimensions
+
+; on resize:
+- glViewport
+- glMatrixMode
+- glLoadIdentity
+
+; on shutdown:
+- wglMakeCurrent
+- wglDeleteContext
+- ReleaseDC
+- FreeLibrary opengl
