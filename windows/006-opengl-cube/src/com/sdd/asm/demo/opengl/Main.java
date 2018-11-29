@@ -226,6 +226,13 @@ public class Main
 				,"glDrawElements"
 //				,"glViewport"
 //				,"glFlush"
+				
+				// TODO: finish this
+				// https://msdn.microsoft.com/en-us/library/windows/desktop/ms644904(v=vs.85).aspx
+				//QueryPerformanceCounter
+				// https://msdn.microsoft.com/en-us/library/windows/desktop/ms644905(v=vs.85).aspx
+				//QueryPerformanceFrequency
+				// https://docs.microsoft.com/en-us/windows/desktop/SysInfo/acquiring-high-resolution-time-stamps#using-qpc-in-native-code
 			),
 			
 			assign_call(ctx, wglCreateContext(deref(ctx2d))),
